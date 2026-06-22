@@ -1,0 +1,25 @@
+{
+  "_comment": "格式层(布局,由题材自带·非用户轴)。为真实数据重做：只保留两种，都用 AI 专属卡片(指标驱动/深扒,无目標株価)。sector/portfolio/compare 已删(无题材用·数据非全真)。structure=渲染结构；stockScene=卡片组件(src/compositions/pro)。",
+  "formats": [
+    {
+      "id": "ranking",
+      "name": "排行榜",
+      "structure": "standard",
+      "stockScene": "AiRankCard",
+      "stockCount": [3, 7],
+      "requiredFields": ["code", "name", "price", "pct"],
+      "renderable": true,
+      "note": "多股排行·大字突出该题材核心指标(配当/PER/PBR/ROE/涨幅…)+真实支撑指标"
+    },
+    {
+      "id": "single-deep",
+      "name": "单股深扒",
+      "structure": "standard",
+      "stockScene": "AiDeepCard",
+      "stockCount": [1, 1],
+      "requiredFields": ["code", "name", "price"],
+      "renderable": true,
+      "note": "单只·全真指标铺开(現在値/PER/PBR/時価総額/業績前年比)"
+    }
+  ]
+}

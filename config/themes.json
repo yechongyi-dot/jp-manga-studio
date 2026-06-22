@@ -1,0 +1,93 @@
+{
+  "_comment": "题材层(源)：每个题材=雅虎实时榜单(真实数据,code/name/数值均实在,AI不杜撰)+引流向角度+自带布局(format)。feed.ranking=雅虎榜单 type(已核实存在)。每天抓取=内容自更新。",
+  "themes": [
+    {
+      "id": "surge",
+      "name": "本日の爆騰株",
+      "format": "ranking",
+      "feed": { "source": "yahoo", "ranking": "up", "market": "all", "term": "daily", "limit": 30 },
+      "angle": "本日急騰した実在の上位銘柄。なぜ買われたか(材料・需給)と続伸余地を、視聴者が『乗り遅れたくない』と感じる切り口で解説。",
+      "defaultStockCount": 5
+    },
+    {
+      "id": "stop-high",
+      "name": "ストップ高速報",
+      "format": "ranking",
+      "feed": { "source": "yahoo", "ranking": "stopHigh", "market": "all", "term": "daily", "limit": 30 },
+      "angle": "本日ストップ高をつけた実在銘柄。急騰の理由と明日の継続性を、速報感・緊急性たっぷりに伝える。",
+      "defaultStockCount": 5
+    },
+    {
+      "id": "volume-surge",
+      "name": "出来高急増・異変株",
+      "format": "ranking",
+      "feed": { "source": "yahoo", "ranking": "volumeIncrease", "market": "all", "term": "daily", "limit": 30 },
+      "angle": "出来高が急増した実在銘柄＝『何かが起きている』サイン。仕手・材料・機関の動きを匂わせ、好奇心を強く刺激する。",
+      "defaultStockCount": 5
+    },
+    {
+      "id": "year-high",
+      "name": "年初来高値ブレイク",
+      "format": "ranking",
+      "feed": { "source": "yahoo", "ranking": "yearToDateHigh", "market": "all", "term": "daily", "limit": 30 },
+      "angle": "年初来高値を更新した実在の強い銘柄。トレンドの本物さと『今が初動かも』という期待感を煽る。",
+      "defaultStockCount": 5
+    },
+    {
+      "id": "high-dividend",
+      "name": "高配当・不労所得株",
+      "format": "ranking",
+      "feed": { "source": "yahoo", "ranking": "dividendYield", "market": "all", "term": "daily", "limit": 40 },
+      "angle": "配当利回りの高い実在銘柄。『配当だけで生活』『ほったらかし不労所得』の夢を見せつつ、利回り・権利確定・継続性を堅実に解説。",
+      "defaultStockCount": 5
+    },
+    {
+      "id": "low-per",
+      "name": "超割安・お宝株（低PER）",
+      "format": "ranking",
+      "feed": { "source": "yahoo", "ranking": "lowPer", "market": "all", "term": "daily", "limit": 40 },
+      "angle": "PERが極端に低く市場に見放された実在銘柄。『みんなが気づく前のお宝』という発掘ワクワク感で見直し余地を語る。",
+      "defaultStockCount": 5
+    },
+    {
+      "id": "low-pbr",
+      "name": "解散価値割れ（低PBR）",
+      "format": "ranking",
+      "feed": { "source": "yahoo", "ranking": "lowPbr", "market": "all", "term": "daily", "limit": 40 },
+      "angle": "PBR1倍割れ＝『会社を解散した方が高い』異常な割安の実在銘柄。東証の改善要請も絡め、是正余地を強調。",
+      "defaultStockCount": 5
+    },
+    {
+      "id": "high-roe",
+      "name": "稼ぐ力No.1（高ROE）",
+      "format": "ranking",
+      "feed": { "source": "yahoo", "ranking": "roe", "market": "all", "term": "daily", "limit": 40 },
+      "angle": "ROEが高い『本物の優良企業』の実在銘柄。資本効率の高さ＝長期で報われる、という説得力で紹介。",
+      "defaultStockCount": 5
+    },
+    {
+      "id": "golden-cross",
+      "name": "ゴールデンクロス点灯",
+      "format": "ranking",
+      "feed": { "source": "yahoo", "ranking": "goldenCross", "market": "all", "term": "daily", "limit": 30 },
+      "angle": "ゴールデンクロスで買いシグナルが点灯した実在銘柄。『チャートが教える上昇の合図』をプロっぽく解説。",
+      "defaultStockCount": 5
+    },
+    {
+      "id": "spotlight-deep",
+      "name": "注目株 徹底解剖（単銘柄）",
+      "format": "single-deep",
+      "feed": { "source": "yahoo", "ranking": "tradingValueHigh", "market": "all", "term": "daily", "limit": 20 },
+      "angle": "本日もっとも売買された＝最も注目された実在銘柄1社を、PER/PBR/業績まで深掘り。『この1社だけは知っておけ』の徹底解説。",
+      "defaultStockCount": 1
+    },
+    {
+      "id": "value-deep",
+      "name": "割安本命 深掘り（単銘柄）",
+      "format": "single-deep",
+      "feed": { "source": "yahoo", "ranking": "lowPer", "market": "all", "term": "daily", "limit": 30 },
+      "angle": "割安に放置された実在の本命1銘柄を徹底解剖。なぜ安いのか・どこで見直されるかを、お宝発掘の視点で深く語る。",
+      "defaultStockCount": 1
+    }
+  ]
+}

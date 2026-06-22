@@ -1,0 +1,32 @@
+{
+  "name": "jp-manga-studio",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx remotion studio --port=3021",
+    "server": "node jp-server.js",
+    "editor:build": "vite build",
+    "editor:dev": "vite build --watch"
+  },
+  "dependencies": {
+    "@remotion/bundler": "4.0.481",
+    "@remotion/cli": "4.0.481",
+    "@remotion/player": "^4.0.481",
+    "@remotion/renderer": "4.0.481",
+    "express": "^4.18.0",
+    "multer": "^1.4.5-lts.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "remotion": "4.0.481"
+  },
+  "devDependencies": {
+    "@types/react": "^18.0.0",
+    "@types/react-dom": "^18.0.0",
+    "@vitejs/plugin-react": "^6.0.2",
+    "typescript": "^5.4.5",
+    "vite": "^8.0.16"
+  },
+  "remotion": {
+    "entrypoint": "src/index.tsx"
+  }
+}

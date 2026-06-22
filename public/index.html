@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JP Manga Studio</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:     #060c18;
+  --bg2:    #0a1525;
+  --bg3:    #0f1e33;
+  --border: #1a2d45;
+  --accent: #F5A623;
+  --text:   #d0e4f8;
+  --text2:  #5a7a9a;
+  --green:  #34c759;
+  --red:    #ff453a;
+  --blue:   #4da3ff;
+  --purple: #b88af0;
+  --radius: 10px;
+}
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px;
+  display: flex; flex-direction: column;
+}
+
+/* ── 顶栏 ── */
+header {
+  background: linear-gradient(180deg,#0c1829 0%,#091220 100%);
+  border-bottom: none;
+  padding: 0 20px; height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100; flex-shrink: 0;
+}
+.header-right { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+header::after {
+  content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245,166,35,.45) 30%, rgba(245,166,35,.45) 70%, transparent);
+}
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo-icon {
+  width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+  background: rgba(245,166,35,.12); border: 1px solid rgba(245,166,35,.25);
+  display: flex; align-items: center; justify-content: center; font-size: 16px;
+}
+.logo-title { font-size: 14px; font-weight: 700; color: #f0c060; letter-spacing: -.3px; line-height: 1.2; }
+.logo-sub   { font-size: 10px; color: rgba(90,130,170,.55); font-weight: 400; }
+.status-badge { font-size: 11px; padding: 4px 11px; border-radius: 20px; font-weight: 600; display: flex; align-items: center; gap: 5px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+.status-idle    { background: rgba(52,199,89,.1);  color: var(--green);  border: 1px solid rgba(52,199,89,.2);  }
+.status-idle .status-dot    { background: var(--green); }
+.status-running { background: rgba(245,166,35,.1); color: var(--accent); border: 1px solid rgba(245,166,35,.2); animation: pulse 1.5s infinite; }
+.status-running .status-dot { background: var(--accent); }
+
+/* ── 更新按钮 ── */
+#updateBtn { display: none; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; border: 1px solid rgba(77,163,255,.35); background: rgba(77,163,255,.1); color: var(--blue); font-size: 11px; font-weight: 600; cursor: pointer; transition: background .15s; }
+#updateBtn:hover { background: rgba(77,163,255,.2); }
+#logBtn { display: flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--bg); color: var(--text2); font-size: 11px; font-weight: 600; cursor: pointer; transition: background .15s; }
+#logBtn:hover { background: rgba(255,255,255,.06); }
+#updateBtn .upd-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--blue); animation: pulse 1.5s infinite; }
+
+/* ── 更新 Modal ── */
+#updateModal { display: none; position: fixed; inset: 0; z-index: 500; align-items: center; justify-content: center; background: rgba(0,0,0,.55); backdrop-filter: blur(4px); }
+#updateModal.show { display: flex; }
+.upd-box { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 24px 26px; width: 420px; max-width: 90vw; }
+.upd-box h3 { margin: 0 0 6px; font-size: 15px; color: var(--text); }
+.upd-box .upd-sub { font-size: 12px; color: var(--text2); margin-bottom: 14px; }
+.upd-commits { max-height: 180px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 16px; }
+.upd-commit { display: flex; gap: 8px; padding: 4px 0; border-bottom: 1px solid rgba(26,45,69,.6); font-size: 12px; }
+.upd-commit:last-child { border-bottom: none; }
+.upd-hash { color: var(--blue); font-family: monospace; flex-shrink: 0; }
+.upd-msg { color: var(--text); }
+.upd-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.upd-actions button { padding: 7px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; border: none; cursor: pointer; }
+.btn-upd-cancel { background: rgba(255,255,255,.06); color: var(--text2); }
+.btn-upd-apply { background: linear-gradient(135deg,#4da3ff,#2d7fe0); color: #fff; }
+.btn-upd-apply:disabled { opacity: .5; cursor: not-allowed; }
+#updProgress { display: none; font-size: 12px; color: var(--text2); margin-top: 10px; text-align: center; }
+
+/* ── 双栏布局 ── */
+main {
+  flex: 1; min-height: 0;
+  display: grid; grid-template-columns: 380px 1fr; overflow: hidden;
+}
+
+/* ══════════ 左栏 ══════════ */
+.left-panel {
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.left-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 10px; }
+
+/* ── 模式切换 ── */
+.mode-tabs {
+  display: flex; background: #091220; border-bottom: 1px solid rgba(255,255,255,.05);
+  position: sticky; top: -10px; z-index: 10; margin: -10px -10px 10px;
+  padding: 8px 8px; gap: 5px;
+}
+.mode-tab {
+  flex: 1; padding: 7px 0; text-align: center; font-size: 13px; font-weight: 600;
+  cursor: pointer; color: rgba(90,130,170,.6); border-radius: 7px;
+  transition: all .2s; user-select: none; border: 1px solid transparent;
+}
+.mode-tab:hover { color: var(--text); background: rgba(255,255,255,.04); }
+.mode-tab.active { color: #f0c060; background: rgba(245,166,35,.1); border-color: rgba(245,166,35,.22); }
+
+/* ── 卡片区块 ── */
+.section-block {
+  background: rgba(255,255,255,.022); border: 1px solid rgba(255,255,255,.07);
+  border-radius: var(--radius); margin-bottom: 8px; overflow: hidden;
+}
+.section-header {
+  font-size: 10px; font-weight: 700; color: rgba(90,130,170,.65);
+  text-transform: uppercase; letter-spacing: 1.2px;
+  padding: 8px 12px 7px;
+  display: flex; align-items: center; gap: 7px;
+  border-bottom: 1px solid rgba(255,255,255,.05);
+  background: rgba(245,166,35,.025);
+}
+.section-header .sh-icon {
+  font-size: 13px; width: 18px; height: 18px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.section-body { padding: 10px 12px; }
+
+textarea {
+  width: 100%; background: rgba(6,12,24,.8); border: 1px solid rgba(255,255,255,.08);
+  border-radius: 8px; color: var(--text); font-family: inherit;
+  font-size: 13px; line-height: 1.65; padding: 10px;
+  resize: vertical; outline: none; transition: border-color .2s;
+}
+textarea:focus { border-color: rgba(245,166,35,.5); }
+textarea::placeholder { color: rgba(90,130,170,.45); }
+
+/* ── 格式提示（可折叠） ── */
+details.fmt-help { margin-top: 7px; }
+details.fmt-help > summary {
+  font-size: 11px; color: var(--text2); cursor: pointer;
+  list-style: none; display: flex; align-items: center; gap: 4px;
+  user-select: none;
+}
+details.fmt-help > summary::-webkit-details-marker { display: none; }
+details.fmt-help > summary::before { content: '▶'; font-size: 9px; transition: transform .2s; }
+details.fmt-help[open] > summary::before { transform: rotate(90deg); }
+.fmt-body {
+  margin-top: 7px; padding: 10px; border-radius: 6px;
+  background: var(--bg); border: 1px solid var(--border);
+  font-size: 11px; color: var(--text2); line-height: 1.9;
+}
+.fmt-body code { color: var(--accent); font-family: 'Consolas', monospace; }
+
+/* ── 表单字段 ── */
+.field-row { display: flex; gap: 8px; margin-top: 8px; }
+.field-row:first-child { margin-top: 0; }
+.field-row > * { flex: 1; }
+.field-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+.field-input {
+  width: 100%; background: rgba(6,12,24,.8); border: 1px solid rgba(255,255,255,.08);
+  border-radius: 7px; color: var(--text); font-family: inherit;
+  font-size: 13px; padding: 7px 10px; outline: none; transition: border-color .2s;
+}
+.field-input:focus { border-color: rgba(245,166,35,.5); }
+
+select.field-input { cursor: pointer; }
+select.field-input option { background: var(--bg2); }
+
+/* ── TTS 引擎切换 ── */
+.engine-toggle { display: flex; gap: 4px; margin-bottom: 8px; }
+.engine-opt {
+  flex: 1; font-size: 12px; font-weight: 600; padding: 6px 0;
+  text-align: center; border-radius: 7px; cursor: pointer;
+  background: rgba(6,12,24,.8); border: 1px solid rgba(255,255,255,.08);
+  color: rgba(90,130,170,.7); transition: all .15s;
+}
+.engine-opt.active { background: rgba(245,166,35,.1); border-color: rgba(245,166,35,.3); color: #f0c060; }
+
+/* VOICEVOX 状态点 */
+.vv-status { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text2); margin-top: 6px; }
+.vv-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+.vv-dot.ok { background: var(--green); }
+.vv-slider {
+  width: 100%; height: 4px; -webkit-appearance: none; appearance: none;
+  background: var(--border); border-radius: 2px; outline: none;
+  margin-top: 6px; cursor: pointer; display: block;
+}
+.vv-slider::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 14px; height: 14px;
+  background: var(--accent); border-radius: 50%;
+}
+.vv-val { color: var(--accent); font-weight: 600; margin-left: 3px; }
+
+/* ── 进度区 ── */
+.prog-empty { color: var(--text2); text-align: center; padding: 12px 0; font-size: 11px; }
+.task-item {
+  background: rgba(255,255,255,.02); border: 1px solid rgba(255,255,255,.06);
+  border-radius: 9px; padding: 9px 11px 9px 14px; margin-bottom: 6px;
+  transition: border-color .2s; position: relative; overflow: hidden;
+}
+.task-item::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--border); border-radius: 0;
+}
+.task-item.running { border-color: rgba(245,166,35,.25); }
+.task-item.running::before { background: linear-gradient(180deg,#f5a623,#e08000); }
+.task-item.done    { border-color: rgba(52,199,89,.25); }
+.task-item.done::before { background: var(--green); }
+.task-item.error   { border-color: rgba(255,69,58,.25); }
+.task-item.error::before { background: var(--red); }
+.task-top { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.task-icon {
+  font-size: 13px; width: 18px; height: 18px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.task-label  { font-size: 12px; font-weight: 600; flex: 1; color: rgba(208,228,248,.85); }
+.task-status { font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 4px; }
+.st-run  { color: #f0c060; background: rgba(245,166,35,.1); border: 1px solid rgba(245,166,35,.2); }
+.st-ok   { color: var(--green); background: rgba(52,199,89,.1); border: 1px solid rgba(52,199,89,.2); }
+.st-err  { color: var(--red);   background: rgba(255,69,58,.1);  border: 1px solid rgba(255,69,58,.2); }
+.prog-bar-wrap { height: 4px; background: rgba(255,255,255,.07); border-radius: 2px; overflow: hidden; margin-bottom: 5px; }
+.prog-bar-fill { height: 100%; border-radius: 2px; transition: width .5s ease; background: linear-gradient(90deg,#f5a623,#ffd060); }
+.task-item.done  .prog-bar-fill { background: var(--green); }
+.task-item.error .prog-bar-fill { background: var(--red); }
+.task-msg { font-size: 10px; color: rgba(90,130,170,.7); }
+.task-done-row { display: flex; align-items: center; gap: 7px; margin-top: 4px; }
+.task-size { font-size: 10px; color: var(--text2); }
+.btn-dl {
+  font-size: 10px; padding: 2px 8px; border-radius: 5px;
+  background: rgba(63,185,80,.1); border: 1px solid rgba(63,185,80,.3);
+  color: var(--green); cursor: pointer; text-decoration: none;
+}
+.btn-dl:hover { background: rgba(63,185,80,.2); }
+
+/* ── 输出列表 ── */
+.output-list { display: flex; flex-direction: column; gap: 4px; }
+.out-item {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 6px; transition: border-color .15s;
+}
+.out-item:hover { border-color: rgba(255,255,255,.15); }
+.out-icon {
+  font-size: 18px; width: 24px; height: 24px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+.out-info { flex: 1; min-width: 0; }
+.out-title { font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.out-meta  { font-size: 10px; color: var(--text2); margin-top: 2px; }
+.out-badge {
+  font-size: 9px; padding: 1px 5px; border-radius: 4px; font-weight: 600; flex-shrink: 0;
+  background: rgba(163,113,247,.12); color: var(--purple); border: 1px solid rgba(163,113,247,.25);
+}
+.out-badge.direct { background: rgba(88,166,255,.12); color: var(--blue); border-color: rgba(88,166,255,.25); }
+.out-actions { display: flex; gap: 4px; }
+.btn-sm {
+  font-size: 10px; padding: 3px 8px; border-radius: 5px;
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text2); cursor: pointer; transition: all .12s; white-space: nowrap;
+}
+.btn-sm:hover { border-color: var(--text2); color: var(--text); }
+.out-empty { color: var(--text2); font-size: 11px; padding: 8px 0; text-align: center; }
+
+/* ── 底部操作 ── */
+.left-actions {
+  flex-shrink: 0; padding: 10px; border-top: 1px solid rgba(255,255,255,.06); background: #060c18;
+}
+.btn-generate {
+  width: 100%; padding: 12px 0; border-radius: 9px;
+  background: linear-gradient(135deg,#f5a623 0%,#e08500 100%);
+  border: none; cursor: pointer;
+  font-size: 15px; font-weight: 700; color: #1a0800;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: filter .2s, transform .1s; letter-spacing: .2px;
+}
+.btn-generate:hover:not(:disabled) { filter: brightness(1.1); }
+.btn-generate:active:not(:disabled) { transform: scale(.98); }
+.btn-generate:disabled { opacity: .4; cursor: not-allowed; }
+.btn-cancel {
+  width: 100%; padding: 8px 0; border-radius: 9px; margin-top: 6px;
+  background: transparent; border: 1.5px solid rgba(255,69,58,.5);
+  cursor: pointer; font-size: 14px; font-weight: 700; color: var(--red);
+  transition: background .15s, opacity .15s;
+}
+.btn-cancel:hover:not(:disabled) { background: rgba(255,69,58,.08); }
+.btn-cancel:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ══════════ 变体处理 ══════════ */
+.toggle-switch { position:relative; display:inline-block; width:32px; height:18px; flex-shrink:0; }
+.toggle-switch input { opacity:0; width:0; height:0; position:absolute; }
+.toggle-track { position:absolute; inset:0; background:var(--border); border-radius:9px; transition:.2s; cursor:pointer; }
+.toggle-track::before { content:''; position:absolute; width:14px; height:14px; left:2px; bottom:2px; background:var(--bg3); border-radius:50%; transition:.2s; }
+.toggle-switch input:checked ~ .toggle-track { background:var(--accent); }
+.toggle-switch input:checked ~ .toggle-track::before { transform:translateX(14px); background:#fff; }
+.variant-auto-row { display:flex; gap:5px; flex-wrap:wrap; padding:4px 0 6px; }
+.variant-auto-tag { font-size:10px; padding:2px 8px; border-radius:4px; background:rgba(63,185,80,.10); color:var(--green); border:1px solid rgba(63,185,80,.20); }
+.variant-layer-row { display:flex; align-items:center; gap:6px; margin-top:5px; }
+.variant-layer-row .layer-lbl { font-size:10px; color:var(--text2); min-width:24px; flex-shrink:0; }
+.variant-layer-row .field-input { flex:1; font-size:11px; padding:3px 7px; }
+.variant-layer-row input[type=checkbox] { cursor:pointer; accent-color:var(--accent); width:13px; height:13px; }
+.variant-hint { font-size:9px; color:var(--text2); margin-top:5px; }
+/* ── 变体层卡片 ── */
+.vl-card { background:var(--bg); border:1px solid var(--border); border-radius:6px; margin-top:5px; overflow:hidden; }
+.vl-top { display:flex; align-items:center; gap:6px; padding:5px 8px; }
+.vl-top .layer-lbl { font-size:10px; color:var(--text2); min-width:22px; flex-shrink:0; }
+.vl-top input[type=checkbox] { cursor:pointer; accent-color:var(--accent); width:13px; height:13px; }
+.src-toggle { display:flex; border:1px solid var(--border); border-radius:5px; overflow:hidden; margin-left:auto; }
+.src-btn { font-size:10px; padding:2px 8px; background:var(--bg2); color:var(--text2); border:none; cursor:pointer; transition:all .12s; }
+.src-btn.active { background:rgba(255,140,0,.15); color:var(--accent); }
+.vl-body { padding:6px 8px 8px; border-top:1px solid var(--border); }
+.vl-row2 { display:flex; gap:6px; margin-top:5px; }
+.vl-row2 > div { flex:1; min-width:0; }
+.vfeat-row { display:flex; gap:8px; flex-wrap:wrap; padding:2px 0 4px; }
+.vfeat-item { display:flex; align-items:center; gap:4px; font-size:11px; color:var(--text2); cursor:pointer; user-select:none; }
+.vfeat-item input[type=checkbox] { cursor:pointer; accent-color:var(--accent); }
+.fission-row { display:flex; align-items:center; gap:8px; }
+.fission-hint { font-size:9px; color:var(--text2); flex:1; }
+.folder-picker-row { display:flex; gap:5px; align-items:center; }
+.folder-display { flex:1; min-width:0; font-size:10px; color:var(--text2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; padding:3px 7px; background:var(--bg); border:1px solid var(--border); border-radius:5px; cursor:default; }
+.folder-display.selected { color:var(--accent); border-color:rgba(255,140,0,.35); }
+
+/* ══════════ 右栏 (Studio 预览) ══════════ */
+.preview-panel {
+  display: flex; flex-direction: column; background: var(--bg); overflow: hidden;
+}
+.studio-bar {
+  flex-shrink: 0; display: flex; align-items: center; gap: 8px;
+  padding: 7px 14px; font-size: 12px; color: var(--text2);
+  background: #091220; border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.studio-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--border); flex-shrink: 0; transition: background .4s;
+}
+.studio-dot.connecting { background: var(--accent); animation: pulse 1.2s infinite; }
+.studio-dot.connected  { background: var(--green); }
+.studio-dot.error      { background: var(--red); }
+.studio-elapsed { font-size: 11px; color: var(--text2); margin-left: 2px; }
+.studio-newwin {
+  margin-left: auto; font-size: 11px; color: var(--text2);
+  text-decoration: none; padding: 2px 7px; border-radius: 4px;
+  border: 1px solid var(--border); transition: all .15s;
+}
+.studio-newwin:hover { color: var(--text); border-color: var(--text2); }
+
+.preview-main { flex: 1; min-height: 0; display: flex; flex-direction: row; }
+
+/* ── 编辑器包装层 ── */
+.studio-frame-wrap { flex: 1; min-width: 0; position: relative; }
+#editorRoot {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  background: #040a14;
+}
+#studioOverlay {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+  background: #040a14; z-index: 2;
+}
+#studioOverlay p { font-size: 12px; color: rgba(90,130,170,.75); margin: 0; }
+#studioErrMsg { font-size: 11px; color: var(--red); text-align: center; max-width: 280px; line-height: 1.6; }
+.spinner {
+  width: 28px; height: 28px; border: 3px solid rgba(26,45,69,.8);
+  border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite;
+}
+
+/* ── 视频预览弹窗 ── */
+.modal-backdrop {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.80); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.modal-backdrop.show { display: flex; }
+.modal-inner {
+  background: #0c1829; border: 1px solid rgba(255,255,255,.08); border-radius: 16px; padding: 20px;
+  width: min(88vw, 420px);
+}
+.modal-title { font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+.modal-video-wrap {
+  position: relative; width: 100%; padding-top: 177.78%;
+  border-radius: 10px; overflow: hidden; background: #000;
+}
+.modal-video-wrap video { position: absolute; inset: 0; width: 100%; height: 100%; }
+.modal-close { display: block; margin-top: 12px; text-align: center; color: var(--text2); cursor: pointer; font-size: 13px; }
+
+/* ── 内容类型竖向列表 ── */
+.type-grid {
+  display:flex; flex-direction:column; gap:6px;
+  max-height:220px; overflow-y:auto; overflow-x:hidden;
+  scrollbar-width:thin; scrollbar-color:var(--border) transparent;
+  padding-right:2px;
+}
+.type-grid::-webkit-scrollbar { width:4px; }
+.type-grid::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+.type-card {
+  padding:9px 12px; border-radius:8px; cursor:pointer;
+  border:1.5px solid var(--border); background:var(--bg);
+  transition:all .15s; display:flex; flex-direction:row;
+  align-items:center; gap:10px; flex-shrink:0;
+}
+.type-card:hover { border-color:rgba(245,166,35,.45); background:rgba(245,166,35,.03); }
+.type-card.active { border-color:rgba(245,166,35,.70); background:rgba(245,166,35,.10); }
+.type-card-icon {
+  font-size:20px; width:28px; height:28px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+}
+.type-card-text { flex:1; min-width:0; }
+.type-card-name { font-size:12px; font-weight:700; color:var(--text); line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.type-card-desc { font-size:10px; color:var(--text2); line-height:1.45; overflow:hidden; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; }
+
+/* ── 提示词/示例预览 ── */
+.preview-details { border-bottom:1px solid var(--border); }
+.preview-details:last-child { border-bottom:none; }
+.preview-details > summary {
+  padding:9px 12px; cursor:pointer; font-size:12px; color:var(--text2);
+  list-style:none; display:flex; align-items:center; gap:6px;
+  user-select:none; transition:color .15s;
+}
+.preview-details > summary::-webkit-details-marker { display:none; }
+.preview-details > summary::before { content:'▶'; font-size:9px; flex-shrink:0; transition:transform .2s; }
+.preview-details[open] > summary::before { transform:rotate(90deg); }
+.preview-details > summary:hover { color:var(--text); }
+.preview-inner { padding:0 12px 12px; }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+@keyframes spin  { to{ transform: rotate(360deg); } }
+
+.count-btn {
+  width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--bg3); color: var(--text); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color .15s;
+}
+.count-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.left-scroll::-webkit-scrollbar { width: 5px; }
+.left-scroll::-webkit-scrollbar-track { background: transparent; }
+.left-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+@media (max-width: 860px) {
+  main { grid-template-columns: 1fr; overflow-y: auto; }
+  .left-panel { border-right: none; border-bottom: 1px solid var(--border); max-height: 60vh; }
+  .preview-panel { min-height: 360px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🎬</div>
+    <div>
+      <div class="logo-title">JP Manga Studio</div>
+      <div class="logo-sub">日股短视频制作台</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <button id="updateBtn" onclick="showUpdateModal()">
+      <span class="upd-dot"></span><span id="updateBtnText">有新版本</span>
+    </button>
+    <button id="logBtn" onclick="downloadLog()" title="下载当前运行日志，发给开发者排查问题">
+      📄 下载日志
+    </button>
+    <div id="statusBadge" class="status-badge status-idle">
+      <span class="status-dot"></span><span id="statusText">空闲</span>
+    </div>
+  </div>
+</header>
+
+<div id="updateModal">
+  <div class="upd-box">
+    <h3>发现新版本</h3>
+    <div class="upd-sub" id="updSubText"></div>
+    <div class="upd-commits" id="updCommitList"></div>
+    <div class="upd-actions">
+      <button class="btn-upd-cancel" onclick="closeUpdateModal()">稍后更新</button>
+      <button class="btn-upd-apply" id="btnApplyUpdate" onclick="applyUpdate()">立即更新并重启</button>
+    </div>
+    <div id="updProgress"></div>
+  </div>
+</div>
+
+<main>
+
+<!-- ══════ 左栏 ══════ -->
+<div class="left-panel">
+  <div class="left-scroll">
+
+    <!-- 制作方式（顶层选择：AI生成 / 手动上传文案） -->
+    <div class="section-block" id="modeBlock" style="margin-top:10px">
+      <div class="section-header"><span class="sh-icon">⚙️</span> 制作方式</div>
+      <div class="section-body">
+        <div class="engine-toggle">
+          <div class="engine-opt active" id="modeAi" onclick="setMode('ai')">🤖 AI 智能生成</div>
+          <div class="engine-opt" id="modeManual" onclick="setMode('manual')">✏️ 文案导入</div>
+        </div>
+        <div style="font-size:10px;color:var(--text2);margin-top:5px;line-height:1.7" id="modeHint">AI 基于 Yahoo 实时数据创作</div>
+      </div>
+    </div>
+
+    <!-- 内容类型选择（旧 AI·已退役·隐藏） -->
+    <div class="section-block" id="typeBlock" style="display:none">
+      <div class="section-header"><span class="sh-icon">📋</span> 内容类型</div>
+      <div class="section-body">
+        <div id="typeGridBody">
+          <div style="color:var(--text2);font-size:11px;text-align:center;padding:12px 0">正在加载模板...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI 内容源：题材 × 口吻（仅 AI 模式） -->
+    <div class="section-block" id="aiLayersBlock" style="display:none">
+      <div class="section-header"><span class="sh-icon">🎯</span> 题材 × 口吻</div>
+      <div class="section-body" style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <div class="field-label">题材（Yahoo 实时数据源）</div>
+          <select class="field-input" id="aiTheme" style="width:100%;margin-top:4px" onchange="syncAiMatrix()"></select>
+          <div id="aiFormatLabel" style="font-size:10px;color:var(--text2);margin-top:3px"></div>
+        </div>
+        <div>
+          <div class="field-label">口吻（语气 + 主播气场）</div>
+          <select class="field-input" id="aiTone" style="width:100%;margin-top:4px"></select>
+        </div>
+        <div id="aiComboHint" style="font-size:10px;color:var(--text2);line-height:1.6;margin-top:6px"></div>
+      </div>
+    </div>
+
+    <!-- 外观：皮肤 × 背景（两种模式共用） -->
+    <div class="section-block" id="appearanceBlock" style="display:none">
+      <div class="section-header"><span class="sh-icon">🎨</span> 皮肤 × 背景</div>
+      <div class="section-body" style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <div class="field-label">皮肤（配色 + 卡片 + 跑马灯）</div>
+          <select class="field-input" id="skinSelect" style="width:100%;margin-top:4px" onchange="syncStudioPreview()"></select>
+        </div>
+        <div>
+          <div class="field-label">背景（衬底）</div>
+          <select class="field-input" id="bgSelect" style="width:100%;margin-top:4px" onchange="document.getElementById('bgSettingsBlock').style.display=this.value==='image'?'':'none'; syncStudioPreview()"></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 背景图片库设置（选了"图片库"背景时生效） -->
+    <div class="section-block" id="bgSettingsBlock" style="display:none">
+      <div class="section-header"><span class="sh-icon">🖼</span> 背景图片库</div>
+      <div class="section-body" style="display:flex;flex-direction:column;gap:9px">
+        <div>
+          <div class="field-label">顶部图文件夹（静态）<span id="bgTopCount" style="color:var(--text2)"></span></div>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <input class="field-input" id="bgTopDir" style="flex:1;font-size:11px" placeholder="未选择" readonly>
+            <button class="btn-sm" style="flex-shrink:0" onclick="pickBgFolder('top')">选择</button>
+          </div>
+        </div>
+        <div>
+          <div class="field-label">底部滚动图文件夹（长图）<span id="bgScrollCount" style="color:var(--text2)"></span></div>
+          <div style="display:flex;gap:6px;margin-top:4px">
+            <input class="field-input" id="bgScrollDir" style="flex:1;font-size:11px" placeholder="未选择" readonly>
+            <button class="btn-sm" style="flex-shrink:0" onclick="pickBgFolder('scroll')">选择</button>
+          </div>
+        </div>
+        <div class="field-row">
+          <div>
+            <div class="field-label">滚动方向</div>
+            <select class="field-input" id="bgDir" onchange="saveBgConfig()" style="margin-top:4px">
+              <option value="up">向上滚动</option>
+              <option value="down">向下滚动</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <div class="field-label">滚动速度 <span id="bgSpeedVal">1.0×</span></div>
+            <input type="range" class="vv-slider" id="bgSpeed" min="0.5" max="5" step="0.1" value="1" style="margin-top:8px"
+              oninput="document.getElementById('bgSpeedVal').textContent=parseFloat(this.value).toFixed(1)+'×'" onchange="saveBgConfig()">
+            <div style="font-size:10px;color:var(--text2);margin-top:3px">1.0×＝配音播完时刚好滚完整张；调大更快、调小更慢</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI提示词 + 示例文案（选择类型后显示） -->
+    <div class="section-block" id="typePreviewBlock" style="display:none">
+      <div class="section-header">
+        <span class="sh-icon">🤖</span>
+        <span id="typePreviewName">AI生成配置</span>
+      </div>
+      <div style="padding:0">
+        <details class="preview-details" id="promptDetails">
+          <summary>AI生成提示词（只读）</summary>
+          <div class="preview-inner">
+            <textarea readonly id="promptText" rows="8"
+              style="width:100%;background:rgba(6,12,24,.8);border:1px solid rgba(255,255,255,.07);border-radius:6px;color:rgba(90,130,170,.7);font-family:monospace;font-size:11px;line-height:1.6;padding:8px;resize:none;outline:none"></textarea>
+          </div>
+        </details>
+        <details class="preview-details" id="exampleDetails">
+          <summary>示例输出文案</summary>
+          <div class="preview-inner">
+            <pre id="exampleText" style="font-size:11px;color:var(--text2);white-space:pre-wrap;line-height:1.7;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;overflow-x:auto"></pre>
+          </div>
+        </details>
+      </div>
+    </div>
+
+
+    <!-- 手动文案上传（manual 模式显示） -->
+    <div class="section-block" id="manualBlock" style="display:none">
+      <div class="section-header"><span class="sh-icon">📝</span> 文案导入</div>
+      <div class="section-body" style="display:flex;flex-direction:column;gap:9px">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <label style="display:inline-flex;align-items:center;padding:5px 10px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:11px;cursor:pointer">
+            📁 选择 .txt 文件
+            <input type="file" accept=".txt,.text,text/plain" style="display:none" onchange="onManualFile(this)">
+          </label>
+          <span style="font-size:10px;color:var(--text2)">或直接粘贴到下方，视频之间空一行分隔</span>
+        </div>
+        <textarea id="manualText" rows="7" placeholder="中文或日文均可（日文口播原样保留）。每个视频一段，段内按：钩子 → 市场背景 → 各支股票（名称（代码）买入价/目标价/涨幅）→ 初期资金/目标利润 → 主推股 → CTA。段内不留空行，视频之间用一个空行分隔。"
+          style="width:100%;background:rgba(6,12,24,.8);border:1px solid rgba(255,255,255,.07);border-radius:6px;color:var(--text);font-size:12px;line-height:1.6;padding:8px;resize:vertical;outline:none"></textarea>
+        <button id="btnParse" onclick="parseManualPreview()"
+          style="padding:7px;border-radius:6px;border:1px solid var(--accent);background:transparent;color:var(--accent);font-weight:600;cursor:pointer;font-size:12px">🔍 解析预览</button>
+        <div id="manualPreview" style="display:none"></div>
+        <div id="manualRepeatRow" style="display:none">
+          <div class="field-label">每段文案生成</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+            <input class="field-input" id="manualRepeat" type="number" min="1" max="99" value="1"
+              style="width:70px;font-size:18px;font-weight:700;text-align:center;padding:6px 8px" oninput="updateGenBtn()">
+            <span style="font-size:11px;color:var(--text2)">条视频 / 段（背景随机，画面有差异）</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+
+    <!-- LINE CTA + API Key -->
+    <div class="section-block">
+      <div class="section-header"><span class="sh-icon">🔑</span> 配置</div>
+      <div class="section-body" style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <div class="field-label">LINE ID（选填）— 自动填入简介底部 CTA</div>
+          <input class="field-input" id="lineId" type="text" placeholder="例：jpstock" style="margin-top:4px">
+        </div>
+        <div>
+          <div class="field-label" style="display:flex;align-items:center;justify-content:space-between">
+            <span>DeepSeek API Key</span>
+            <button onclick="toggleApiKeyVis()" id="apiKeyToggle" style="font-size:10px;padding:1px 6px;border-radius:4px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer">显示</button>
+          </div>
+          <input class="field-input" id="deepseekKey" type="password" placeholder="留空则使用服务器 .env 配置" style="margin-top:4px;font-family:monospace" oninput="saveApiKey()">
+
+          <!-- 行情代理：仅 AI 自动生成用（手动上传用文案里的价格，不抓取）→ 手动模式隐藏 -->
+          <div id="proxyBlock">
+            <div class="field-label" style="margin-top:10px">🌐 行情代理（AI 智能生成抓真实股价用·选填）</div>
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <input class="field-input" id="quoteProxy" type="text" placeholder="例：http://127.0.0.1:7890" style="flex:1;font-family:monospace">
+              <button class="btn-sm" style="font-size:11px;flex-shrink:0;white-space:nowrap" onclick="testProxy(this)">测试并保存</button>
+            </div>
+            <div id="proxyHint" style="font-size:10px;color:var(--text2);margin-top:3px">海外/日本机器可留空直连；中国网络请填代理（v2rayN填socks5端口）。仅 AI 智能生成时用于抓取真实股价。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 配音设置 -->
+    <div class="section-block" id="ttsBlock">
+      <div class="section-header"><span class="sh-icon">🎙</span> 配音引擎</div>
+      <div class="section-body">
+        <div class="engine-toggle" id="engineToggle">
+          <div class="engine-opt active" onclick="setEngine('edge')" data-engine="edge">☁ Edge TTS</div>
+          <div class="engine-opt" onclick="setEngine('voicevox')" data-engine="voicevox">🇯🇵 VOICEVOX</div>
+        </div>
+        <div class="vv-status">
+          <div class="vv-dot" id="vvDot"></div>
+          <span id="vvLabel">正在检测 VOICEVOX...</span>
+        </div>
+
+        <div id="voicevoxFields" style="display:none;margin-top:8px">
+          <!-- 说话人：全宽下拉 -->
+          <div style="margin-bottom:10px">
+            <div class="field-label">说话人</div>
+            <select class="field-input" id="vvSpeaker" style="width:100%">
+              <option value="3">ずんだもん（ノーマル）</option>
+            </select>
+          </div>
+          <!-- 语速 + 音量 -->
+          <div class="field-row" style="margin-bottom:10px">
+            <div>
+              <div class="field-label">语速 <span id="vvSpeedVal" class="vv-val">1.20</span></div>
+              <input type="range" class="vv-slider" id="vvSpeed" min="0.5" max="2.0" step="0.05" value="1.20"
+                     oninput="document.getElementById('vvSpeedVal').textContent=parseFloat(this.value).toFixed(2)">
+            </div>
+            <div>
+              <div class="field-label">音量 <span id="vvVolVal" class="vv-val">1.00</span></div>
+              <input type="range" class="vv-slider" id="vvVolume" min="0.0" max="2.0" step="0.05" value="1.00"
+                     oninput="document.getElementById('vvVolVal').textContent=parseFloat(this.value).toFixed(2)">
+            </div>
+          </div>
+          <!-- 音高 + 抑扬 -->
+          <div class="field-row" style="margin-bottom:10px">
+            <div>
+              <div class="field-label">音高 <span id="vvPitchVal" class="vv-val">0.00</span></div>
+              <input type="range" class="vv-slider" id="vvPitch" min="-0.15" max="0.15" step="0.01" value="0.00"
+                     oninput="document.getElementById('vvPitchVal').textContent=parseFloat(this.value).toFixed(2)">
+            </div>
+            <div>
+              <div class="field-label">抑扬 <span id="vvIntonVal" class="vv-val">1.00</span></div>
+              <input type="range" class="vv-slider" id="vvIntonation" min="0.0" max="2.0" step="0.05" value="1.00"
+                     oninput="document.getElementById('vvIntonVal').textContent=parseFloat(this.value).toFixed(2)">
+            </div>
+          </div>
+          <!-- 前停顿 + 后停顿 -->
+          <div class="field-row">
+            <div>
+              <div class="field-label">前停顿 <span id="vvPreVal" class="vv-val">0.10</span>s</div>
+              <input type="range" class="vv-slider" id="vvPrePhone" min="0" max="1.5" step="0.05" value="0.10"
+                     oninput="document.getElementById('vvPreVal').textContent=parseFloat(this.value).toFixed(2)">
+            </div>
+            <div>
+              <div class="field-label">后停顿 <span id="vvPostVal" class="vv-val">0.10</span>s</div>
+              <input type="range" class="vv-slider" id="vvPostPhone" min="0" max="1.5" step="0.05" value="0.10"
+                     oninput="document.getElementById('vvPostVal').textContent=parseFloat(this.value).toFixed(2)">
+            </div>
+          </div>
+        </div>
+
+        <div id="edgeFields" style="margin-top:8px">
+          <div class="field-row">
+            <div>
+              <div class="field-label">音色</div>
+              <select class="field-input" id="ttsVoice">
+                <option value="ja-JP-NanamiNeural">Nanami（女声）</option>
+                <option value="ja-JP-KeitaNeural">Keita（男声）</option>
+              </select>
+            </div>
+            <div>
+              <div class="field-label">语速</div>
+              <select class="field-input" id="ttsRate">
+                <option value="-10%">-10%（慢）</option>
+                <option value="+0%">+0%（标准）</option>
+                <option value="+20%" selected>+20%（1.2倍）</option>
+                <option value="+30%">+30%（快）</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 变体处理 -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="sh-icon">🎲</span> 变体处理
+        <label class="toggle-switch" style="margin-left:auto" title="渲染完成后自动对每个视频施加音频微变调 + 色彩微调，使批量视频指纹各不相同">
+          <input type="checkbox" id="variantEnabled" onchange="toggleVariantBody()">
+          <span class="toggle-track"></span>
+        </label>
+      </div>
+      <div id="variantBody" style="display:none">
+        <div class="section-body" style="padding-bottom:8px">
+
+          <!-- 内置效果 -->
+          <div class="field-label" style="margin-bottom:4px">内置效果（始终启用）</div>
+          <div class="variant-auto-row">
+            <span class="variant-auto-tag">🎵 音频微变调 ±0.5半音</span>
+            <span class="variant-auto-tag">🎨 色彩微调 随机</span>
+          </div>
+
+          <!-- 裂变数量 -->
+          <div class="fission-row" style="margin-top:8px">
+            <div class="field-label" style="margin:0;flex-shrink:0">裂变副本数</div>
+            <input class="field-input" id="fissionCount" type="number" min="1" max="99" value="1"
+              style="width:58px;flex-shrink:0;font-size:12px;padding:4px 7px;text-align:center">
+            <span class="fission-hint">每段脚本渲染 1 次后产生 N 个指纹各异的副本</span>
+          </div>
+
+          <!-- 可选增强特效 -->
+          <div class="field-label" style="margin:8px 0 3px">可选增强特效</div>
+          <div class="vfeat-row">
+            <label class="vfeat-item">
+              <input type="checkbox" id="enableScale" checked>缩放裁剪
+            </label>
+            <label class="vfeat-item">
+              <input type="checkbox" id="enableDrawbox">角标色块
+            </label>
+          </div>
+
+          <!-- 叠加素材层 -->
+          <div class="field-label" style="margin:7px 0 0">叠加素材层（可选）</div>
+
+          <!-- 层 1 -->
+          <div class="vl-card">
+            <div class="vl-top">
+              <input type="checkbox" id="layer1En" onchange="toggleLayerBody(1)">
+              <span class="layer-lbl">层 1</span>
+              <div class="src-toggle" id="srcToggle1" data-src="noise">
+                <button class="src-btn active" onclick="setLayerSrc(1,'noise')">噪声</button>
+                <button class="src-btn"        onclick="setLayerSrc(1,'file')">文件</button>
+              </div>
+            </div>
+            <div class="vl-body" id="vlBody1" style="display:none">
+              <div id="vlPath1" style="display:none;margin-bottom:5px">
+                <input type="hidden" id="layer1Path">
+                <div class="folder-picker-row">
+                  <div class="folder-display" id="layer1FolderDisplay">未选择文件夹</div>
+                  <button class="btn-sm" onclick="browseFolder(1,this)">📂 选择</button>
+                </div>
+              </div>
+              <div class="vl-row2">
+                <div>
+                  <div class="field-label">运动</div>
+                  <select class="field-input" id="layer1Motion" onchange="onLayerMotionChange(1)"
+                    style="font-size:11px;padding:3px 5px">
+                    <option value="fixed">固定</option>
+                    <option value="clockwise" selected>顺时针</option>
+                    <option value="counter_clockwise">逆时针</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="field-label">透明度 %</div>
+                  <input class="field-input" id="layer1Opacity" type="number" min="1" max="20" value="8"
+                    style="font-size:11px;padding:3px 7px">
+                </div>
+                <div id="spRow1">
+                  <div class="field-label">速度</div>
+                  <input class="field-input" id="layer1Speed" type="number" min="0.01" max="10" step="0.1" value="0.3"
+                    style="font-size:11px;padding:3px 7px">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 层 2 -->
+          <div class="vl-card">
+            <div class="vl-top">
+              <input type="checkbox" id="layer2En" onchange="toggleLayerBody(2)">
+              <span class="layer-lbl">层 2</span>
+              <div class="src-toggle" id="srcToggle2" data-src="noise">
+                <button class="src-btn active" onclick="setLayerSrc(2,'noise')">噪声</button>
+                <button class="src-btn"        onclick="setLayerSrc(2,'file')">文件</button>
+              </div>
+            </div>
+            <div class="vl-body" id="vlBody2" style="display:none">
+              <div id="vlPath2" style="display:none;margin-bottom:5px">
+                <input type="hidden" id="layer2Path">
+                <div class="folder-picker-row">
+                  <div class="folder-display" id="layer2FolderDisplay">未选择文件夹</div>
+                  <button class="btn-sm" onclick="browseFolder(2,this)">📂 选择</button>
+                </div>
+              </div>
+              <div class="vl-row2">
+                <div>
+                  <div class="field-label">运动</div>
+                  <select class="field-input" id="layer2Motion" onchange="onLayerMotionChange(2)"
+                    style="font-size:11px;padding:3px 5px">
+                    <option value="fixed">固定</option>
+                    <option value="clockwise">顺时针</option>
+                    <option value="counter_clockwise" selected>逆时针</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="field-label">透明度 %</div>
+                  <input class="field-input" id="layer2Opacity" type="number" min="1" max="20" value="6"
+                    style="font-size:11px;padding:3px 7px">
+                </div>
+                <div id="spRow2">
+                  <div class="field-label">速度</div>
+                  <input class="field-input" id="layer2Speed" type="number" min="0.01" max="5" step="0.1" value="0.2"
+                    style="font-size:11px;padding:3px 7px">
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 层 3 -->
+          <div class="vl-card">
+            <div class="vl-top">
+              <input type="checkbox" id="layer3En" onchange="toggleLayerBody(3)">
+              <span class="layer-lbl">层 3</span>
+              <div class="src-toggle" id="srcToggle3" data-src="noise">
+                <button class="src-btn active" onclick="setLayerSrc(3,'noise')">噪声</button>
+                <button class="src-btn"        onclick="setLayerSrc(3,'file')">文件</button>
+              </div>
+            </div>
+            <div class="vl-body" id="vlBody3" style="display:none">
+              <div id="vlPath3" style="display:none;margin-bottom:5px">
+                <input type="hidden" id="layer3Path">
+                <div class="folder-picker-row">
+                  <div class="folder-display" id="layer3FolderDisplay">未选择文件夹</div>
+                  <button class="btn-sm" onclick="browseFolder(3,this)">📂 选择</button>
+                </div>
+              </div>
+              <div class="vl-row2">
+                <div>
+                  <div class="field-label">运动</div>
+                  <select class="field-input" id="layer3Motion" onchange="onLayerMotionChange(3)"
+                    style="font-size:11px;padding:3px 5px">
+                    <option value="fixed">固定</option>
+                    <option value="clockwise" selected>顺时针</option>
+                    <option value="counter_clockwise">逆时针</option>
+                  </select>
+                </div>
+                <div>
+                  <div class="field-label">透明度 %</div>
+                  <input class="field-input" id="layer3Opacity" type="number" min="1" max="20" value="5"
+                    style="font-size:11px;padding:3px 7px">
+                </div>
+                <div id="spRow3">
+                  <div class="field-label">速度</div>
+                  <input class="field-input" id="layer3Speed" type="number" min="0.01" max="5" step="0.1" value="0.4"
+                    style="font-size:11px;padding:3px 7px">
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 制作进度 -->
+    <div class="section-block">
+      <div class="section-header"><span class="sh-icon">⚙</span> 制作进度</div>
+      <div class="section-body" style="padding-top:8px">
+        <div id="progressArea">
+          <div class="prog-empty">暂无制作任务</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 已完成视频 -->
+    <div class="section-block">
+      <div class="section-header">
+        <span class="sh-icon">🎬</span> 已完成视频
+        <button class="btn-sm" style="margin-left:auto;font-size:10px" onclick="loadOutputs()">刷新</button>
+      </div>
+      <div class="section-body" style="padding-top:8px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;font-size:11px">
+          <span style="color:var(--text2);flex-shrink:0">📁 输出目录</span>
+          <span id="outDirDisplay" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)" title="">加载中…</span>
+          <button class="btn-sm" style="font-size:10px;flex-shrink:0" onclick="changeOutputDir(this)">更换</button>
+        </div>
+        <div class="output-list" id="outputList">
+          <div class="out-empty">暂无视频</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /left-scroll -->
+
+  <!-- 底部按钮 -->
+  <div class="left-actions">
+    <button class="btn-generate" id="btnGenerate" onclick="generate()">
+      ▶ 开始制作
+    </button>
+    <button class="btn-cancel" id="btnCancel" onclick="cancelGenerate()" style="display:none">
+      ✕ 取消批量
+    </button>
+  </div>
+</div><!-- /left-panel -->
+
+<!-- ══════ 右栏 (视频编辑器) ══════ -->
+<div class="preview-panel">
+  <div class="studio-bar">
+    <div class="studio-dot" id="studioDot"></div>
+    <span id="studioLabel">编辑器加载中...</span>
+    <span class="studio-elapsed" id="studioElapsed"></span>
+    <a class="studio-newwin" href="http://localhost:3021" target="_blank" title="在新窗口打开 Remotion Studio" onclick="launchStudio()">↗ Studio</a>
+  </div>
+  <div class="preview-main">
+    <div class="studio-frame-wrap">
+      <div id="editorRoot"></div>
+      <div id="studioOverlay">
+        <div class="spinner"></div>
+        <p id="studioOverlayMsg">正在加载编辑器...</p>
+        <p id="studioErrMsg" style="display:none"></p>
+      </div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<!-- 视频预览弹窗 -->
+<div class="modal-backdrop" id="previewModal" onclick="closeModal()">
+  <div class="modal-inner" onclick="event.stopPropagation()">
+    <div class="modal-title" id="modalTitle"></div>
+    <div class="modal-video-wrap">
+      <video id="modalVideo" controls playsinline></video>
+    </div>
+    <div class="modal-close" onclick="closeModal()">✕ 关闭</div>
+  </div>
+</div>
+
+<script>
+/* ══ 状态 ══ */
+let currentContentTypeId = '';
+let currentEngine        = 'edge';
+let currentJobId         = null;
+let evtSource            = null;
+let cancelBatch          = false;
+let _batchItems          = [];
+let _publishInd          = null;
+let _publishBusy         = false;
+let _publishPending      = false;
+let _publishBatchName    = '';
+let _presetsData         = null;
+let currentMode          = 'ai';   // 'ai' | 'manual'
+let _aiTypeId            = '';      // AI 路径上次选中的内容类型 id（切回 AI 时恢复）
+let _manualScripts       = [];     // 解析+翻译后的日文脚本数组
+
+/* ══ 内容类型 + 风格 ══ */
+async function loadContentPresets() {
+  try {
+    const data = await fetch('/api/content-presets').then(r => r.json());
+    _presetsData = data;
+    const body  = document.getElementById('typeGridBody');
+    const icons = { 'jp-stock-standard': '📈', 'jp-nisa-portfolio': '🏦' };
+    body.innerHTML = `<div class="type-grid">
+      <div class="type-card" id="tc___all" onclick="selectAll()">
+        <div class="type-card-icon">🗂</div>
+        <div class="type-card-text">
+          <div class="type-card-name">全部类型</div>
+          <div class="type-card-desc">显示所有模板</div>
+        </div>
+      </div>
+      ${(data.types || []).map(t => `
+        <div class="type-card" id="tc_${t.id}" onclick="selectType('${t.id}')">
+          <div class="type-card-icon">${icons[t.id] || '📋'}</div>
+          <div class="type-card-text">
+            <div class="type-card-name">${esc(t.name)}</div>
+            <div class="type-card-desc">${esc(t.description)}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
+    // 旧 AI 自动选类型已移除（AI 改走三层；避免异步 selectType 把退役的旧块重新显示出来）
+  } catch (e) {
+    document.getElementById('typeGridBody').innerHTML =
+      `<div style="color:var(--red);font-size:11px;padding:8px">加载失败: ${esc(e.message)}</div>`;
+  }
+}
+
+function selectAll() {
+  currentContentTypeId = '';
+  _aiTypeId = '';
+  document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
+  document.getElementById('tc___all').classList.add('active');
+  document.getElementById('typePreviewBlock').style.display = 'none';
+  // Studio 跳到根路径（显示全部模板侧边栏）
+  const frame = document.getElementById('studioFrame');
+  if (frame && !frame.src.includes('about:blank')) {
+    frame.src = 'http://localhost:3021';
+  }
+  document.getElementById('manualBlock').style.display = 'none';
+  document.getElementById('aiCountBlock').style.display = '';
+  updateGenBtn();
+}
+
+function selectType(typeId) {
+  if (!_presetsData) return;
+  const type = _presetsData.types.find(t => t.id === typeId);
+  if (!type) return;
+  currentContentTypeId = typeId;
+  _aiTypeId = typeId;
+
+  // 高亮卡片
+  document.querySelectorAll('.type-card').forEach(c => c.classList.remove('active'));
+  const card = document.getElementById('tc_' + typeId);
+  if (card) card.classList.add('active');
+
+  // 更新提示词/示例
+  document.getElementById('typePreviewName').textContent = type.name + ' — AI配置';
+  document.getElementById('promptText').value  = type.prompt  || '';
+  document.getElementById('exampleText').textContent = type.example || '';
+  document.getElementById('typePreviewBlock').style.display = '';
+
+}
+
+
+/* ══ 新 AI 三层（题材×格式×口吻）══ */
+let _aiLayers = null;
+async function loadAiLayers() {
+  if (_aiLayers) return;
+  try {
+    _aiLayers = await fetch('/api/ai/layers').then(r => r.json());
+    const fill = (id, items) => { document.getElementById(id).innerHTML = items.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join(''); };
+    fill('aiTheme',  _aiLayers.themes);
+    fill('aiTone',   _aiLayers.tones);
+    fill('skinSelect', _aiLayers.skins || []);
+    const procBgs = (_aiLayers.backgrounds || []).filter(b => b.id !== 'theme').map(b => `<option value="proc:${esc(b.id)}">${esc(b.name)}</option>`).join('');
+    document.getElementById('bgSelect').innerHTML =
+      `<optgroup label="── 自定义图片 ──"><option value="image">使用下方图片库设置</option></optgroup>` +
+      `<optgroup label="── 动态背景（自动匹配皮肤）──">${procBgs}</optgroup>`;
+    syncAiMatrix();
+  } catch (e) {
+    const h = document.getElementById('aiComboHint'); if (h) h.textContent = '配置加载失败: ' + e.message;
+  }
+}
+
+// 题材决定布局(自带格式)；口吻按矩阵(题材×口吻)过滤；股数范围按题材布局
+function syncAiMatrix() {
+  if (!_aiLayers) return;
+  const themeId = document.getElementById('aiTheme').value;
+  const theme = _aiLayers.themes.find(t => t.id === themeId);
+  const fmt = theme ? _aiLayers.formats.find(f => f.id === theme.format) : null;
+  // 题材自带布局，标明（不让用户选）
+  document.getElementById('aiFormatLabel').innerHTML = fmt
+    ? `布局：<b style="color:var(--accent)">${esc(fmt.name)}</b>（题材自带）· 实时抓取`
+    : '';
+  // 口吻按矩阵过滤
+  const toneSel = document.getElementById('aiTone');
+  const validTones = new Set(_aiLayers.matrix.filter(c => c.theme === themeId).map(c => c.tone));
+  const items = _aiLayers.tones.filter(t => validTones.has(t.id));
+  const cur = toneSel.value;
+  toneSel.innerHTML = items.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join('');
+  if (items.some(t => t.id === cur)) toneSel.value = cur;
+}
+
+async function syncStudioPreview() {
+  if (!_aiLayers || !window.__JP_EDITOR) return;
+  const skinId = document.getElementById('skinSelect').value;
+  const skin = (_aiLayers.skins || []).find(s => s.id === skinId);
+  const themeId = skin ? skin.theme : 'JP_PRIME';
+  const bgVal = document.getElementById('bgSelect').value || 'image';
+  if (bgVal.startsWith('proc:')) {
+    window.__JP_EDITOR.setProps({ themeId, bg: { type: 'procedural', id: bgVal.split(':')[1] } });
+    return;
+  }
+  // 图片库模式：取代表图喂给预览（所见即所得；图在 public 外，经 /api/bg-file 服务）
+  try {
+    const p = await fetch('/api/bg-preview').then(r => r.json());
+    if (p && p.ok && (p.top || p.scroll)) {
+      const o = location.origin;
+      const conv = im => im ? { src: o + im.url, w: im.w, h: im.h } : null;
+      window.__JP_EDITOR.setProps({ themeId, bg: {
+        type: 'image', top: conv(p.top), scroll: conv(p.scroll),
+        dir: p.dir, speed: p.speed, scrimOpacity: p.scrimOpacity,
+      } });
+      return;
+    }
+  } catch {}
+  window.__JP_EDITOR.setProps({ themeId, bg: { type: 'procedural', id: 'theme' } });  // 无图回退
+}
+
+async function aiGenerate() {
+  if (!_aiLayers) { alert('AI 配置未加载'); return; }
+  const themeId = document.getElementById('aiTheme').value;
+  const toneId = document.getElementById('aiTone').value;
+  const skinId = document.getElementById('skinSelect').value;
+  if (!themeId || !toneId) { alert('请选择 题材 / 口吻'); return; }
+  const bgVal = document.getElementById('bgSelect').value || 'image';
+  const bg = bgVal.startsWith('proc:') ? { kind: 'procedural', id: bgVal.split(':')[1] } : { kind: 'image' };
+
+  setRunning(true);
+  const area = document.getElementById('progressArea');
+  area.innerHTML = '';
+  const card = document.createElement('div');
+  card.className = 'task-card';
+  card.innerHTML = `<div class="task-label">🎬 AI 生成：${esc(themeId)} × ${esc(toneId)} × ${esc(skinId)}</div>
+    <div class="ai-log" style="font-size:11px;color:var(--text2);max-height:200px;overflow:auto;margin-top:8px;white-space:pre-wrap;font-family:monospace;line-height:1.6"></div>
+    <div class="ai-result" style="margin-top:8px"></div>`;
+  area.appendChild(card);
+  const logEl = card.querySelector('.ai-log'), resEl = card.querySelector('.ai-result');
+  const appendLog = t => { logEl.textContent += t + '\n'; logEl.scrollTop = logEl.scrollHeight; };
+  appendLog('启动…');
+
+  let res, data;
+  try {
+    res = await fetch('/api/ai/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ themeId, toneId, skinId, apiKey: getApiKey(), bg }),
+    });
+    data = await res.json();
+  } catch (e) { appendLog('❌ 请求失败: ' + e.message); setRunning(false); return; }
+  if (!res.ok) { appendLog('❌ ' + (data.error || '启动失败')); setRunning(false); return; }
+
+  let finished = false;
+  const ev = new EventSource('/api/progress/' + data.jobId);
+  ev.addEventListener('progress', e => { try { const d = JSON.parse(e.data); if (d.log) appendLog(d.log); } catch {} });
+  ev.addEventListener('done', e => {
+    finished = true; ev.close(); setRunning(false);
+    let d = {}; try { d = JSON.parse(e.data); } catch {}
+    appendLog('✓ 完成');
+    if (d.videoUrl) resEl.innerHTML = `<video src="${d.videoUrl}" controls style="width:100%;border-radius:8px;background:#000"></video>`;
+    loadOutputs();
+  });
+  ev.addEventListener('error', e => {
+    if (finished) return;
+    let msg = ''; try { msg = JSON.parse(e.data).message; } catch {}
+    if (msg) { finished = true; ev.close(); setRunning(false); appendLog('❌ ' + msg); }
+    // 无 data 的 error 多为连接关闭，忽略
+  });
+}
+
+/* ══ 背景图片库设置 ══ */
+async function loadBgConfig() {
+  try {
+    const d = await fetch('/api/bg-config').then(r => r.json());
+    const img = d.image || {};
+    document.getElementById('bgTopDir').value = img.topDir || '';
+    document.getElementById('bgScrollDir').value = img.scrollDir || '';
+    document.getElementById('bgTopCount').textContent = ` · ${img.topCount || 0}张`;
+    document.getElementById('bgScrollCount').textContent = ` · ${img.scrollCount || 0}张`;
+    document.getElementById('bgDir').value = img.dir || 'up';
+    document.getElementById('bgSpeed').value = img.scrollSpeed ?? 1;
+    document.getElementById('bgSpeedVal').textContent = parseFloat(img.scrollSpeed ?? 1).toFixed(1) + '×';
+  } catch {}
+}
+async function saveBgConfig() {
+  const body = { dir: document.getElementById('bgDir').value, scrollSpeed: parseFloat(document.getElementById('bgSpeed').value) };
+  try { await fetch('/api/bg-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); } catch {}
+  if (typeof syncStudioPreview === 'function') syncStudioPreview();
+}
+async function pickBgFolder(which) {
+  let r; try { r = await fetch('/api/browse-folder').then(x => x.json()); } catch { return; }
+  if (!r || !r.ok || !r.path) return;
+  const body = which === 'top' ? { topDir: r.path } : { scrollDir: r.path };
+  try { await fetch('/api/bg-config', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); } catch {}
+  loadBgConfig();
+}
+
+function getGenCount() {
+  return Math.max(1, Math.min(999, parseInt(document.getElementById('genCountInput')?.value) || 1));
+}
+function updateGenBtn() {
+  const btn = document.getElementById('btnGenerate');
+  if (currentMode === 'manual') {
+    const M = _manualScripts.length;
+    const R = getManualRepeat();
+    btn.innerHTML = M ? `▶ 生成 ${M * R} 个视频（${M}段 × ${R}）` : '▶ 请先解析文案';
+    return;
+  }
+  btn.innerHTML = '▶ 生成视频';   // 新 AI 三层：单条生成
+}
+
+function cancelGenerate() {
+  cancelBatch = true;
+  const cb = document.getElementById('btnCancel');
+  cb.disabled = true;
+  cb.textContent = '取消中，等待当前条完成...';
+}
+
+/* ══ 引擎切换 ══ */
+function setEngine(e) {
+  currentEngine = e;
+  document.querySelectorAll('#engineToggle .engine-opt').forEach(t =>
+    t.classList.toggle('active', t.dataset.engine === e));
+  document.getElementById('voicevoxFields').style.display = e === 'voicevox' ? 'block' : 'none';
+  document.getElementById('edgeFields').style.display     = e === 'edge'     ? 'block' : 'none';
+  // auto: 两个都显示（让用户看到会用哪个）
+  if (e === 'auto') {
+    document.getElementById('edgeFields').style.display = 'block';
+  }
+}
+
+
+/* ══ 公共参数 ══ */
+function getCommonParams() {
+  return {
+    contentTypeId: currentContentTypeId,
+    lineId:        document.getElementById('lineId').value.trim(),
+    apiKey:        getApiKey(),
+    variantConfig: getVariantConfig(),
+    ttsEngine:     currentEngine,
+    ttsVoice:      document.getElementById('ttsVoice').value,
+    ttsRate:       document.getElementById('ttsRate').value,
+    vvSpeaker:     parseInt(document.getElementById('vvSpeaker').value),
+    vvSpeed:       parseFloat(document.getElementById('vvSpeed').value) || 1.20,
+    vvVolume:      parseFloat(document.getElementById('vvVolume').value) || 1.0,
+    vvPitch:       parseFloat(document.getElementById('vvPitch').value) || 0.0,
+    vvIntonation:  parseFloat(document.getElementById('vvIntonation').value) || 1.0,
+    vvPrePhoneme:  parseFloat(document.getElementById('vvPrePhone').value) || 0.1,
+    vvPostPhoneme: parseFloat(document.getElementById('vvPostPhone').value) || 0.1,
+  };
+}
+
+/* ══ 手动文案模式 ══ */
+function setMode(m) {
+  currentMode = m;
+  document.getElementById('modeAi').classList.toggle('active', m === 'ai');
+  document.getElementById('modeManual').classList.toggle('active', m === 'manual');
+  const manual = m === 'manual';
+  document.getElementById('typeBlock').style.display        = 'none';
+  document.getElementById('typePreviewBlock').style.display = 'none';
+  document.getElementById('manualBlock').style.display      = manual ? '' : 'none';
+  document.getElementById('aiLayersBlock').style.display    = manual ? 'none' : '';
+  document.getElementById('appearanceBlock').style.display  = '';        // 皮肤+背景：两种模式共用
+  const bgSel = document.getElementById('bgSelect');
+  document.getElementById('bgSettingsBlock').style.display = (bgSel && bgSel.value === 'image') ? '' : 'none';
+  const proxyBlock = document.getElementById('proxyBlock');
+  if (proxyBlock) proxyBlock.style.display = manual ? 'none' : '';
+  document.getElementById('modeHint').textContent = manual
+    ? '导入写好的文案（中文自动翻译 / 日文原样保留），软件解析后批量制作'
+    : 'AI 基于 Yahoo 实时数据创作';
+  loadAiLayers();                                                        // 填充皮肤+背景（两种模式都需要）
+  updateGenBtn();
+}
+
+function getManualRepeat() {
+  return Math.max(1, Math.min(99, parseInt(document.getElementById('manualRepeat')?.value) || 1));
+}
+
+function onManualFile(input) {
+  const f = input.files && input.files[0];
+  if (!f) return;
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById('manualText').value = e.target.result || ''; };
+  reader.readAsText(f, 'utf-8');
+}
+
+async function parseManualPreview() {
+  const text = document.getElementById('manualText').value.trim();
+  if (!text) { alert('请先粘贴或导入文案'); return; }
+  const btn = document.getElementById('btnParse');
+  btn.disabled = true; btn.textContent = '解析翻译中...';
+  _manualScripts = [];
+  try {
+    const res = await fetch('/api/parse-scripts', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text,
+        lineId: document.getElementById('lineId').value.trim(),
+        apiKey: getApiKey(),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) { alert(data.error || '解析失败'); return; }
+    _manualScripts = data.segments.map(s => s.script).filter(Boolean);
+    renderManualPreview(data);
+  } catch (e) {
+    alert('解析失败: ' + e.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '🔍 解析预览';
+  }
+}
+
+function renderManualPreview(data) {
+  const box = document.getElementById('manualPreview');
+  box.style.display = '';
+  box.innerHTML =
+    `<div style="font-size:11px;margin-bottom:6px">解析到 <b style="color:var(--accent)">${data.count}</b> 段` +
+    (data.hasKey ? ' · <span style="color:var(--green)">已翻译为日文 ✓</span>'
+                 : ' · <span style="color:var(--red)">未配置 API Key，无法翻译/生成</span>') + '</div>' +
+    data.segments.map(s => {
+      const jp = s.script, bad = s.issues.length;
+      const head = jp ? jp.title : ((String(s.cn || '').split('\n')[0] || '').trim() || `第${s.index + 1}段`);
+      const stockCount = jp && jp.stocks ? jp.stocks.length : 0;
+      return `<details style="border:1px solid var(--border);border-radius:6px;margin-bottom:5px;background:var(--bg)">
+        <summary style="padding:6px 9px;font-size:11px;cursor:pointer;color:${bad ? 'var(--red)' : 'var(--text)'}">
+          #${s.index + 1} ${esc(head)}${jp ? ` <span style="color:var(--text2)">· ${stockCount}股</span>` : ''}${bad ? ' ⚠ ' + esc(s.issues.join('、')) : ' ✓'}
+        </summary>
+        <div style="padding:8px 10px;font-size:11px;line-height:1.7;color:var(--text2);border-top:1px solid var(--border)">
+          ${jp ? `<div><b style="color:var(--text)">日文标题</b>：${esc(jp.title || '')}</div>
+          <div><b style="color:var(--text)">副标题</b>：${esc(jp.subtitle || '')}</div>
+          <div style="margin-top:5px"><b style="color:var(--text)">画面数据</b></div>
+          <div>${(jp.stocks || []).map(st => `${esc(st.code)} ${esc(st.name)} ${esc(st.buyPrice)} ${esc(st.pct)}`).join('<br>')}</div>
+          <div style="margin-top:3px">资金 ${esc(jp.initialCapital || '—')} · 利润 ${esc(jp.targetProfitMin || '—')}→${esc(jp.targetProfitMax || '—')} · 主推 ${esc(jp.featuredCurrentPrice || '—')}→${esc(jp.featuredTargetPrice || '—')} (${esc(jp.featuredPct || '—')})</div>
+          ${s.ttsList && s.ttsList.length ? `<div style="margin-top:7px;padding-top:6px;border-top:1px dashed var(--border)">
+            <b style="color:var(--text)">📢 完整配音文案（按播放顺序，可校对）</b>
+            ${s.ttsList.map(t => `<div style="margin-top:3px"><span style="color:var(--accent);font-weight:600">${esc(t.label)}：</span>${esc(t.text)}</div>`).join('')}
+          </div>` : ''}`
+          : `<div style="white-space:pre-wrap">${esc(String(s.cn || ''))}</div>
+          <div style="margin-top:5px;color:var(--red)">未配置 API Key，无法解析翻译；填入 Key 后重新点「解析预览」</div>`}
+        </div>
+      </details>`;
+    }).join('');
+  document.getElementById('manualRepeatRow').style.display = (data.hasKey && _manualScripts.length) ? '' : 'none';
+  updateGenBtn();
+}
+
+async function manualGenerateBatch() {
+  if (!_manualScripts.length) { alert('请先点「解析预览」，并确保已配置 API Key 完成翻译'); return; }
+  const R = getManualRepeat();
+  const queue = [];
+  _manualScripts.forEach((script, si) => {
+    for (let r = 0; r < R; r++) queue.push({ script, seg: si, rep: r });
+  });
+  const n = queue.length;
+
+  cancelBatch = false;
+  _batchItems = [];
+  _publishInd = null; _publishBusy = false; _publishPending = false;
+  _publishBatchName = 'manual_' + new Date().toISOString().slice(0, 16).replace('T', '_').replace(/:/g, '');
+  setRunning(true, true);
+  const common = getCommonParams();
+  const area = document.getElementById('progressArea');
+  area.innerHTML = '';
+
+  const cards = queue.map((q, i) => {
+    const el = makeBatchCard(i, n);
+    el.querySelector('.task-label').textContent = `第${q.seg + 1}段 · 副本${q.rep + 1}/${R}`;
+    area.appendChild(el);
+    return el;
+  });
+
+  const PARALLEL = Math.min(2, n);   // 同时最多并行 2 条（与后端 MAX_PARALLEL 一致）
+  const perConc  = 8;                // 并行时每条降到 8 并发（2×8=16 ≤ 20 核，避免争抢）
+  let ok = 0, cursor = 0;
+  const worker = async () => {
+    while (cursor < n && !cancelBatch) {
+      const i = cursor++;
+      cards[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      const skinId = document.getElementById('skinSelect').value || 'blue';
+      const bgVal = document.getElementById('bgSelect').value || 'image';
+      const bg = bgVal.startsWith('proc:') ? { kind: 'procedural', id: bgVal.split(':')[1] } : { kind: 'image' };
+      const params = { ...common, manualScript: queue[i].script, renderConcurrency: perConc, skinId, bg };
+      const result = await generateOneByType(params, i);
+      if (result.ok) ok++;
+      await generatePublishDoc(area).catch(() => {});
+    }
+  };
+  await Promise.all(Array.from({ length: PARALLEL }, worker));
+
+  const wasCancelled = cancelBatch;
+  setRunning(false);
+  loadOutputs();
+
+  const summary = document.createElement('div');
+  summary.className = 'prog-empty';
+  summary.style.color = wasCancelled ? 'var(--text2)' : (ok === n ? 'var(--green)' : 'var(--red)');
+  summary.textContent = wasCancelled ? `已取消：完成 ${ok} / ${n}` : `批量完成：${ok} / ${n} 个视频成功`;
+  area.appendChild(summary);
+}
+
+/* ══ 开始制作 ══ */
+async function generate() {
+  if (currentMode === 'manual') { await manualGenerateBatch(); return; }
+  await aiGenerate(); return;   // 新 AI 三层管线
+  // ↓↓ 旧 AI(imitate) 路径已退役·不可达，待「旧 AI 清扫」步骤统一删除 ↓↓
+  if (!currentContentTypeId) { alert('请先选择内容类型'); return; }
+  const n = getGenCount();
+  if (n > 1) {
+    await typeGenerateBatch(n);
+    return;
+  }
+  // 单个
+  const body = getCommonParams();
+  setRunning(true);
+  let res, data;
+  try {
+    res  = await fetch('/api/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    data = await res.json();
+  } catch (e) { alert('网络请求失败: ' + e.message); setRunning(false); return; }
+  if (!res.ok) { alert(data.error); setRunning(false); return; }
+  currentJobId = data.jobId;
+  showTask({ mode: 'imitate', pct: 0, msg: '正在启动...' });
+  listenProgress(data.jobId);
+}
+
+/* ══ 类型批量生成 ══ */
+async function typeGenerateBatch(n) {
+  cancelBatch = false;
+  _batchItems = [];
+  _publishInd = null; _publishBusy = false; _publishPending = false;
+  _publishBatchName = new Date().toISOString().slice(0, 16).replace('T', '_').replace(/:/g, '');
+  setRunning(true, true);
+  const params = getCommonParams();
+  const area   = document.getElementById('progressArea');
+  area.innerHTML = '';
+
+  const cards = Array.from({ length: n }, (_, i) => {
+    const el = makeBatchCard(i, n);
+    el.querySelector('.task-label').textContent = `视频 ${i + 1} / ${n}`;
+    area.appendChild(el);
+    return el;
+  });
+
+  const usedStockCodes = [];
+  let ok = 0;
+  for (let i = 0; i < n; i++) {
+    if (cancelBatch) break;
+    cards[i].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    const result = await generateOneByType({ ...params, batchIndex: i, excludeStocks: usedStockCodes.slice(-150) }, i);
+    // 等待发布文档更新完成（含AI调用）再进入下一条，避免与下一条的脚本生成并发打DeepSeek导致限流
+    if (result.ok) { ok++; usedStockCodes.push(...result.stocks); await generatePublishDoc(area).catch(() => {}); }
+  }
+
+  const wasCancelled = cancelBatch;
+  setRunning(false);
+  loadOutputs();
+
+  const summary = document.createElement('div');
+  summary.className = 'prog-empty';
+  if (wasCancelled) {
+    summary.style.color = 'var(--text2)';
+    summary.textContent = `已取消：已完成 ${ok} / ${n} 个视频`;
+  } else {
+    summary.style.color = ok === n ? 'var(--green)' : 'var(--red)';
+    summary.textContent = `批量完成：${ok} / ${n} 个视频成功`;
+  }
+  area.appendChild(summary);
+}
+
+async function generateOneByType(params, i) {
+  const card = document.getElementById(`bcard${i}`);
+  card.className = 'task-item running';
+  document.getElementById(`bst${i}`).textContent = '制作中';
+  document.getElementById(`bst${i}`).style.color = 'var(--accent)';
+  document.getElementById(`bmsg${i}`).textContent = '正在启动...';
+
+  let res;
+  try {
+    res = await fetch('/api/generate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+  } catch (e) {
+    markBatchCard(i, false, '网络错误'); return { ok: false, stocks: [] };
+  }
+  if (!res.ok) {
+    const d = await res.json().catch(() => ({}));
+    markBatchCard(i, false, d.error || '请求失败'); return { ok: false, stocks: [] };
+  }
+  const { jobId } = await res.json();
+  return new Promise(resolve => {
+    const es = new EventSource(`/api/progress/${jobId}`);
+    const esWatchdog = setTimeout(() => {
+      es.close();
+      markBatchCard(i, false, '超时（10分钟）'); resolve({ ok: false, stocks: [] });
+    }, 600000);
+    es.addEventListener('progress', e => {
+      const d = JSON.parse(e.data);
+      if (d.pct != null) document.getElementById(`bbar${i}`).style.width = d.pct + '%';
+      if (d.msg || d.log) document.getElementById(`bmsg${i}`).textContent = d.msg || d.log;
+    });
+    es.addEventListener('done', e => {
+      clearTimeout(esWatchdog); es.close();
+      const d = JSON.parse(e.data);
+      document.getElementById(`bcard${i}`).className = 'task-item done';
+      document.getElementById(`bbar${i}`).style.width = '100%';
+      document.getElementById(`bst${i}`).textContent = '完成';
+      document.getElementById(`bst${i}`).style.color = 'var(--green)';
+      const ytScript = metaToScript(d.meta || {});
+      document.getElementById(`bmsg${i}`).innerHTML =
+        `${esc(d.meta?.title || '视频')} — <a class="btn-dl" href="${d.videoUrl}" download>下载</a>`;
+      _batchItems.push({ scriptText: ytScript, videoUrl: d.videoUrl, meta: d.meta || {} });
+      const usedCodes = (d.meta?.stocks || []).map(s => s.code).filter(Boolean);
+      resolve({ ok: true, stocks: usedCodes });
+    });
+    es.addEventListener('error', e => {
+      clearTimeout(esWatchdog); es.close();
+      let msg = '生成失败';
+      try { msg = JSON.parse(e.data).message || msg; } catch {}
+      markBatchCard(i, false, msg); resolve({ ok: false, stocks: [] });
+    });
+  });
+}
+
+function listenProgress(jobId) {
+  evtSource = new EventSource(`/api/progress/${jobId}`);
+  const watchdog = setTimeout(() => {
+    evtSource.close(); setRunning(false);
+    finishTask(false, '连接超时（10分钟），请检查服务器状态');
+  }, 600000);
+  const cleanup = () => clearTimeout(watchdog);
+  evtSource.addEventListener('progress', e => {
+    const d = JSON.parse(e.data);
+    updateTask({ pct: d.pct, msg: d.msg || d.log });
+  });
+  evtSource.addEventListener('done', e => {
+    cleanup();
+    const d = JSON.parse(e.data);
+    finishTask(true, d.meta?.title || '制作完成', d.videoUrl);
+    evtSource.close(); setRunning(false); loadOutputs();
+  });
+  evtSource.addEventListener('error', e => {
+    cleanup();
+    try { const d = JSON.parse(e.data); finishTask(false, d.message); } catch {}
+    evtSource.close(); setRunning(false);
+  });
+}
+
+
+/* ══ 编辑器 → 出片闭环（右栏编辑器调用）══
+ * 走批量式单条流程：视频 → OUT_DIR，并在完成后生成/更新 HTML 发布素材（与正常流程一致，
+ * 视频和交付素材一起产出、同目录）。 */
+async function generateFromEditor(payload) {
+  if (document.getElementById('btnGenerate').disabled) { alert('已有生成任务进行中，请稍候'); return; }
+  cancelBatch = false;
+  _batchItems = [];
+  _publishInd = null; _publishBusy = false; _publishPending = false;
+  _publishBatchName = 'editor_' + new Date().toISOString().slice(0, 16).replace('T', '_').replace(/:/g, '');
+  setRunning(true);
+
+  const area = document.getElementById('progressArea');
+  area.innerHTML = '';
+  const card = makeBatchCard(0, 1);
+  card.querySelector('.task-label').textContent = '🎬 编辑器生成';
+  area.appendChild(card);
+
+  const params = {
+    ...getCommonParams(),
+    manualScript: payload.manualScript,   // 编辑器内容当手动脚本走（TTS+渲染由管线完成）
+    skinId:       '',                     // themeId 直接指定，无需 skin
+    bg:           payload.bg,
+    stockSceneId: payload.stockSceneId,
+    themeId:      payload.themeId,
+    fontConfig:   payload.fontConfig,
+  };
+  const result = await generateOneByType(params, 0);      // 渲染 MP4 → OUT_DIR，完成后推入 _batchItems
+  if (result.ok) await generatePublishDoc(area).catch(() => {});  // 同步生成/更新 HTML 发布素材
+
+  setRunning(false);
+  loadOutputs();
+}
+window.generateFromEditor = generateFromEditor;
+
+/* ══ YouTube素材：将脚本meta还原为文本（仿写模式用）══ */
+function metaToScript(meta) {
+  let t = `【${meta.title || '注目銘柄'}】\n`;
+  for (const s of meta.stocks || []) {
+    t += `\n■ ${s.name || ''} (${s.code || ''})`;
+    if (s.buyPrice)    t += `\n買値: ${s.buyPrice}`;
+    if (s.pct)         t += `  上昇率: ${s.pct}`;
+    if (s.shortTarget) t += `\n短期目標: ${s.shortTarget}`;
+    if (s.finalTarget) t += `\n最終目標: ${s.finalTarget}`;
+    else if (s.targetPrice) t += `\n目標: ${s.targetPrice}`;
+    if (s.note)        t += `\n${s.note}`;
+    t += '\n';
+  }
+  return t;
+}
+
+/* ══ 变体处理 ══ */
+function toggleVariantBody() {
+  document.getElementById('variantBody').style.display =
+    document.getElementById('variantEnabled').checked ? '' : 'none';
+}
+async function browseFolder(i, btn) {
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const res  = await fetch('/api/browse-folder');
+    const data = await res.json();
+    if (data.ok && data.path) {
+      document.getElementById('layer' + i + 'Path').value = data.path;
+      const d = document.getElementById('layer' + i + 'FolderDisplay');
+      d.textContent = data.path;
+      d.title = data.path;
+      d.classList.add('selected');
+    }
+  } catch (e) { alert('选择失败: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+function toggleLayerBody(i) {
+  document.getElementById('vlBody' + i).style.display =
+    document.getElementById('layer' + i + 'En').checked ? '' : 'none';
+}
+function setLayerSrc(i, src) {
+  document.getElementById('vlPath' + i).style.display = src === 'file' ? '' : 'none';
+  document.getElementById('srcToggle' + i).dataset.src = src;
+  document.getElementById('srcToggle' + i).querySelectorAll('.src-btn').forEach((b, j) => {
+    b.classList.toggle('active', (j === 0 && src === 'noise') || (j === 1 && src === 'file'));
+  });
+}
+function onLayerMotionChange(i) {
+  const motion = document.getElementById('layer' + i + 'Motion').value;
+  document.getElementById('spRow' + i).style.display = motion === 'fixed' ? 'none' : '';
+}
+function getVariantConfig() {
+  if (!document.getElementById('variantEnabled').checked) return null;
+  const layers = [1, 2, 3].map(i => ({
+    enabled:    document.getElementById('layer' + i + 'En').checked,
+    sourceType: document.getElementById('srcToggle' + i)?.dataset.src || 'noise',
+    filePath:   document.getElementById('layer' + i + 'Path')?.value.trim() || '',
+    motionMode: document.getElementById('layer' + i + 'Motion')?.value || 'fixed',
+    opacity:    parseInt(document.getElementById('layer' + i + 'Opacity')?.value) || 8,
+    speed:      parseFloat(document.getElementById('layer' + i + 'Speed')?.value) || 0.3,
+  }));
+  return {
+    enabled:       true,
+    fissionCount:  Math.max(1, Math.min(99, parseInt(document.getElementById('fissionCount')?.value) || 1)),
+    enableScale:   document.getElementById('enableScale').checked,
+    enableDrawbox: document.getElementById('enableDrawbox').checked,
+    layers,
+  };
+}
+
+/* ══ DeepSeek API Key 本地存储 ══ */
+function getApiKey() {
+  return document.getElementById('deepseekKey').value.trim()
+      || localStorage.getItem('deepseek_api_key') || '';
+}
+function saveApiKey() {
+  const v = document.getElementById('deepseekKey').value.trim();
+  if (v) localStorage.setItem('deepseek_api_key', v);
+  else   localStorage.removeItem('deepseek_api_key');
+}
+function toggleApiKeyVis() {
+  const inp = document.getElementById('deepseekKey');
+  const btn = document.getElementById('apiKeyToggle');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '显示' : '隐藏';
+}
+
+/* ══ 逐视频更新发布素材 HTML（每完成一条立即触发，防并发 + 缓存）══ */
+async function generatePublishDoc(area) {
+  if (!_batchItems.length) return;
+  if (_publishBusy) { _publishPending = true; return; }
+  _publishBusy = true; _publishPending = false;
+
+  // 复用同一指示器元素，不重复追加
+  if (!_publishInd || !area.contains(_publishInd)) {
+    _publishInd = document.createElement('div');
+    _publishInd.className = 'prog-empty';
+    area.appendChild(_publishInd);
+  }
+  _publishInd.style.color = 'var(--accent)';
+  _publishInd.textContent = `⏳ 正在更新发布素材（${_batchItems.length} 个视频）...`;
+
+  const lineId  = document.getElementById('lineId').value.trim();
+  const apiKey  = getApiKey();
+  try {
+    const res  = await fetch('/api/generate-publish-doc', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: _batchItems, lineId, apiKey, batchName: _publishBatchName }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || '生成失败');
+    _publishInd.innerHTML = `📦 发布素材（${_batchItems.length} 个视频）→ <a href="${esc(data.url)}" target="_blank" style="color:var(--blue);text-decoration:underline;font-weight:600">点击打开</a>`;
+    _publishInd.style.color = 'var(--green)';
+  } catch (e) {
+    _publishInd.style.color = 'var(--red)';
+    _publishInd.textContent = `❌ 发布素材更新失败：${e.message}`;
+  }
+
+  _publishBusy = false;
+  // 生成期间若有新视频完成，再跑一次
+  if (_publishPending) generatePublishDoc(area).catch(() => {});
+}
+
+/* 批量进度卡片 */
+function makeBatchCard(i, total) {
+  const el = document.createElement('div');
+  el.className = 'task-item';
+  el.id = `bcard${i}`;
+  el.innerHTML = `
+    <div class="task-top">
+      <span class="task-icon">📄</span>
+      <span class="task-label">第 ${i + 1} / ${total} 段</span>
+      <span class="task-status" id="bst${i}" style="color:var(--text2)">等待中</span>
+    </div>
+    <div class="prog-bar-wrap"><div class="prog-bar-fill" id="bbar${i}" style="width:0%"></div></div>
+    <div class="task-msg" id="bmsg${i}">—</div>
+  `;
+  return el;
+}
+
+
+function markBatchCard(i, ok, msg) {
+  document.getElementById(`bcard${i}`).className = `task-item ${ok ? 'done' : 'error'}`;
+  document.getElementById(`bbar${i}`).style.width = '100%';
+  document.getElementById(`bst${i}`).textContent = ok ? '完成' : '失败';
+  document.getElementById(`bst${i}`).style.color = ok ? 'var(--green)' : 'var(--red)';
+  document.getElementById(`bmsg${i}`).textContent = msg;
+}
+
+/* ══ 进度卡片 ══ */
+let _taskEl = null;
+function showTask({ mode, pct, msg }) {
+  const modeText = mode === 'imitate' ? '🤖 仿写生成' : '✏ 直接制作';
+  _taskEl = document.createElement('div');
+  _taskEl.className = 'task-item running';
+  _taskEl.innerHTML = `
+    <div class="task-top">
+      <span class="task-icon">⚙</span>
+      <span class="task-label">${modeText}</span>
+      <span class="task-status st-run" id="taskSt">制作中</span>
+    </div>
+    <div class="prog-bar-wrap"><div class="prog-bar-fill" id="taskBar" style="width:${pct||0}%"></div></div>
+    <div class="task-msg" id="taskMsg">${msg||''}</div>
+  `;
+  const area = document.getElementById('progressArea');
+  area.innerHTML = '';
+  area.appendChild(_taskEl);
+}
+function updateTask({ pct, msg }) {
+  if (!_taskEl) return;
+  if (pct != null) document.getElementById('taskBar').style.width = pct + '%';
+  if (msg)        document.getElementById('taskMsg').textContent = msg;
+}
+function finishTask(ok, msg, videoUrl) {
+  if (!_taskEl) return;
+  _taskEl.className = `task-item ${ok ? 'done' : 'error'}`;
+  document.getElementById('taskBar').style.width = '100%';
+  document.getElementById('taskSt').textContent  = ok ? '完成' : '失败';
+  document.getElementById('taskSt').className    = ok ? 'task-status st-ok' : 'task-status st-err';
+  const msgEl = document.getElementById('taskMsg');
+  if (ok && videoUrl) {
+    msgEl.innerHTML = `${msg} — <a class="btn-dl" href="${videoUrl}" download>下载</a>`;
+  } else {
+    msgEl.textContent = msg;
+  }
+}
+
+/* ══ 输出列表 ══ */
+async function loadOutputDir() {
+  try {
+    const d = await fetch('/api/output-dir').then(r => r.json());
+    const el = document.getElementById('outDirDisplay');
+    el.textContent = d.outputDir + (d.isDefault ? '（默认）' : '');
+    el.title = d.outputDir;
+  } catch {}
+}
+async function changeOutputDir(btn) {
+  const orig = btn.textContent;
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    const sel = await fetch('/api/browse-folder').then(r => r.json());
+    if (sel.ok && sel.path) {
+      const r = await fetch('/api/output-dir', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ outputDir: sel.path }),
+      });
+      const data = await r.json();
+      if (!r.ok) { alert(data.error || '设置失败'); }
+      else { await loadOutputDir(); loadOutputs(); }
+    }
+  } catch (e) { alert('更换失败: ' + e.message); }
+  finally { btn.disabled = false; btn.textContent = orig; }
+}
+
+/* ══ 行情代理（AI自动生成抓真实股价）══ */
+async function loadProxy() {
+  try { const d = await fetch('/api/proxy').then(r => r.json()); document.getElementById('quoteProxy').value = d.proxy || ''; } catch {}
+}
+async function testProxy(btn) {
+  const orig = btn.textContent;
+  const proxy = document.getElementById('quoteProxy').value.trim();
+  const hint = document.getElementById('proxyHint');
+  btn.disabled = true; btn.textContent = '测试中...';
+  hint.style.color = 'var(--text2)'; hint.textContent = '正在连接株探测试（トヨタ 7203）…';
+  try {
+    const r = await fetch('/api/test-proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proxy, code: '7203' }) });
+    const d = await r.json();
+    if (r.ok && d.ok) {
+      await fetch('/api/proxy', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ proxy }) });
+      hint.style.color = '#16a34a';
+      hint.textContent = `✓ 连通并已保存（${d.quote.name || 'トヨタ自動車'} = ${d.quote.price}円）`;
+    } else {
+      hint.style.color = '#e8392b';
+      hint.textContent = '✗ 失败：' + (d.error || '无法连接') + '（检查代理是否开启/端口；留空则尝试直连）';
+    }
+  } catch (e) {
+    hint.style.color = '#e8392b';
+    hint.textContent = '✗ 失败：' + e.message;
+  } finally { btn.disabled = false; btn.textContent = orig; }
+}
+
+async function loadOutputs() {
+  let list;
+  try { list = await fetch('/api/outputs').then(r => r.json()); }
+  catch { list = []; }
+  const el   = document.getElementById('outputList');
+  if (!list.length) { el.innerHTML = '<div class="out-empty">暂无视频</div>'; return; }
+  el.innerHTML = list.slice(0, 10).map(f => `
+    <div class="out-item">
+      <div class="out-icon">🎬</div>
+      <div class="out-info">
+        <div class="out-title" title="${esc(f.title)}">${esc(f.title)}</div>
+        <div class="out-meta">${(f.size/1024/1024).toFixed(1)} MB</div>
+      </div>
+      <span class="out-badge ${f.mode==='direct'?'direct':''}">${f.mode==='direct'?'直接':'仿写'}</span>
+      <div class="out-actions">
+        <button class="btn-sm" onclick="openPreview('${f.url}','${esc(f.title)}')">▶</button>
+        <a class="btn-sm" href="${f.url}" download>↓</a>
+      </div>
+    </div>
+  `).join('');
+}
+
+/* ══ 状态管理 ══ */
+function setRunning(b, showCancel = false) {
+  document.getElementById('statusBadge').className = 'status-badge ' + (b ? 'status-running' : 'status-idle');
+  document.getElementById('statusBadge').innerHTML = `<span class="status-dot"></span><span>${b ? '制作中' : '空闲'}</span>`;
+  document.getElementById('btnGenerate').disabled = b;
+  const cb = document.getElementById('btnCancel');
+  cb.style.display = (b && showCancel) ? '' : 'none';
+  cb.disabled = false;
+  cb.textContent = '✕ 取消批量';
+  if (!b) cancelBatch = false;
+}
+
+/* ══ 视频预览 ══ */
+function openPreview(url, title) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalVideo').src = url;
+  document.getElementById('previewModal').classList.add('show');
+}
+function closeModal() {
+  document.getElementById('previewModal').classList.remove('show');
+  document.getElementById('modalVideo').pause();
+}
+
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ══ Remotion Studio（按需启动） ══ */
+let studioConnected = false;
+
+async function launchStudio() {
+  if (studioConnected) return;
+  try {
+    await fetch('/api/studio/start', { method: 'POST' });
+    studioConnected = true;
+  } catch {}
+}
+
+/* ══ VOICEVOX 状态 + 音色列表 ══ */
+async function loadVoicevoxSpeakers() {
+  try {
+    const speakers = await fetch('/api/voicevox/speakers').then(r => r.json());
+    if (!Array.isArray(speakers) || !speakers.length) return;
+    const sel = document.getElementById('vvSpeaker');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    for (const spk of speakers) {
+      for (const style of spk.styles) {
+        const opt = document.createElement('option');
+        opt.value       = style.id;
+        opt.textContent = `${spk.name}（${style.name}）`;
+        sel.appendChild(opt);
+      }
+    }
+    const opts = [...sel.options];
+    if (opts.some(o => o.value === prev))  sel.value = prev;
+    else if (opts.some(o => o.value === '3')) sel.value = '3';
+  } catch (e) { console.warn('[VV] speaker load error', e); }
+}
+
+async function checkVoicevox() {
+  try {
+    const d = await fetch('/api/voicevox/status').then(r => r.json());
+    const dot = document.getElementById('vvDot');
+    const lbl = document.getElementById('vvLabel');
+    if (d.available) {
+      dot.className   = 'vv-dot ok';
+      lbl.textContent = 'VOICEVOX 可用（自动优先）';
+      loadVoicevoxSpeakers();
+    } else {
+      dot.className   = 'vv-dot';
+      lbl.textContent = 'VOICEVOX 未启动，将使用 Edge TTS';
+    }
+  } catch {}
+}
+
+/* ══ 初始化 ══ */
+(function () {
+  const saved = localStorage.getItem('deepseek_api_key');
+  if (saved) document.getElementById('deepseekKey').value = saved;
+})();
+setEngine('edge');
+checkVoicevox();
+loadOutputs();
+loadOutputDir();
+loadProxy();
+loadContentPresets();
+loadAiLayers();
+loadBgConfig();
+setMode('ai');     // 默认进 AI 智能生成（显示三层选择器）
+setInterval(checkVoicevox, 20000);
+
+// 编辑器就绪 + 配置加载后，首次同步一次预览（让初始画面就反映所选皮肤/背景，无需手动切下拉）
+(function waitEditorThenSync() {
+  let tries = 0;
+  const t = setInterval(() => {
+    if (window.__JP_EDITOR && _aiLayers) { clearInterval(t); syncStudioPreview(); }
+    else if (++tries > 60) clearInterval(t);
+  }, 500);
+})();
+
+/* ══ 应用内更新 ══ */
+let _updateCommits = [];
+
+async function checkUpdate() {
+  try {
+    const r = await fetch('/api/update/check');
+    const d = await r.json();
+    if (d.hasUpdate && d.commits.length > 0) {
+      _updateCommits = d.commits;
+      const btn = document.getElementById('updateBtn');
+      document.getElementById('updateBtnText').textContent = `${d.commits.length} 个更新`;
+      btn.style.display = 'flex';
+    }
+  } catch (_) {}
+}
+
+/* ══ 日志下载（排查问题用）══ */
+function downloadLog() {
+  const a = document.createElement('a');
+  a.href = '/api/logs/download';
+  a.download = '';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function showUpdateModal() {
+  const list = document.getElementById('updCommitList');
+  list.innerHTML = _updateCommits.map(c =>
+    `<div class="upd-commit"><span class="upd-hash">${esc(c.hash)}</span><span class="upd-msg">${esc(c.message)}</span></div>`
+  ).join('');
+  document.getElementById('updSubText').textContent = `共 ${_updateCommits.length} 条更新，更新后将自动重启`;
+  document.getElementById('updateModal').classList.add('show');
+}
+
+function closeUpdateModal() {
+  document.getElementById('updateModal').classList.remove('show');
+}
+
+async function applyUpdate() {
+  const btn = document.getElementById('btnApplyUpdate');
+  const prog = document.getElementById('updProgress');
+  btn.disabled = true;
+  prog.style.display = 'block';
+  prog.textContent = '正在拉取更新...';
+  try {
+    const r = await fetch('/api/update/apply', { method: 'POST' });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error);
+    prog.textContent = d.needsInstall ? '正在安装新依赖，完成后自动重启...' : '更新完成，正在重启...';
+    setTimeout(() => { prog.textContent = '服务器重启中，请稍候...'; }, 3000);
+    const totalTries = d.needsInstall ? 150 : 30;  // 依赖安装可能数分钟，给足等待窗口（原 40s 不够）
+    setTimeout(async () => {
+      for (let i = 0; i < totalTries; i++) {
+        await new Promise(r => setTimeout(r, 2000));
+        try { const ping = await fetch('/api/studio/status'); if (ping.ok) { location.reload(); break; } } catch (_) {}
+      }
+    }, 4000);
+  } catch (e) {
+    prog.textContent = `更新失败: ${e.message}`;
+    btn.disabled = false;
+  }
+}
+
+setTimeout(checkUpdate, 5000);
+setInterval(checkUpdate, 30 * 60 * 1000);
+</script>
+<script src="/editor-dist/editor.js"></script>
+</body>
+</html>

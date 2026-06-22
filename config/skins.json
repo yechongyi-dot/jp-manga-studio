@@ -1,0 +1,11 @@
+{
+  "_comment": "皮肤(配色)轴：决定画面配色/卡片样式/跑马灯/片头幕布色。与口吻(语气)解耦——任意口吻×任意皮肤自由组合。theme=pro jpTheme id(src/compositions/pro/jpTheme.ts)。",
+  "skins": [
+    { "id": "blue",    "name": "冷蓝 现代简约",  "theme": "JP_PRIME" },
+    { "id": "warm",    "name": "暖橙 财经速报",  "theme": "JP_BROADCAST" },
+    { "id": "mint",    "name": "薄荷 稳健理财",  "theme": "JP_REPORT" },
+    { "id": "teal",    "name": "青蓝 深度研报",  "theme": "JP_INSIGHT" },
+    { "id": "purple",  "name": "紫蓝 板块洞察",  "theme": "JP_SECTOR" },
+    { "id": "redgold", "name": "红金 NISA速报", "theme": "JP_NISA_OVERLAY" }
+  ]
+}

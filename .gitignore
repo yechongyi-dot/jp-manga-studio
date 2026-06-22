@@ -1,0 +1,39 @@
+# 依赖
+node_modules/
+
+# 运行时生成（音频缓存、上传、元数据等）
+temp/
+
+# 视频渲染输出
+output/
+
+# Remotion 打包产物（npx remotion bundle）
+build/
+
+# 离线整合包构建产物
+dist/
+
+# 编辑器 Vite 打包产物（服务器启动时按需自动构建，见 jp-server.js ensureEditorBuilt）
+public/editor-dist/
+
+# 本机应用配置（输出目录等，随机器不同）
+app-config.json
+
+# 日志
+*.log
+*.log.*
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 环境配置（含 API Key 等敏感信息）
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Claude Code 配置（仅本机使用）
+.claude/

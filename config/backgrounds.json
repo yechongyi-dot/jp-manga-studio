@@ -1,0 +1,33 @@
+{
+  "_comment": "背景系统。procedural=现有程序化背景(jpTheme的Bg组件,可在AiVideo选,id=theme表示跟随口吻默认)。image=本地图片：顶部静态短图(topDir)+长图滚动(scrollDir,dir=up/down)，各自从文件夹按文件名顺序不重复轮选、选完循环。文件夹放 public/ 下，Studio/渲染均经 staticFile 访问。mode=procedural|image 决定 AI 出片默认用哪种。",
+  "mode": "image",
+  "procedural": [
+    {
+      "id": "theme",
+      "name": "自动匹配皮肤"
+    },
+    {
+      "id": "JpPrimeBg",
+      "name": "K线图"
+    },
+    {
+      "id": "JpReportBg",
+      "name": "资产配置图"
+    },
+    {
+      "id": "JpInsightBg",
+      "name": "关系网络图"
+    },
+    {
+      "id": "JpSectorBg",
+      "name": "板块热力图"
+    }
+  ],
+  "image": {
+    "topDir": "C:\\Users\\LaoYe\\Desktop\\YahooFinanceGenerator1.2\\output_generated\\template3\\头部",
+    "scrollDir": "C:\\Users\\LaoYe\\Desktop\\YahooFinanceGenerator1.2\\output_generated\\template3\\列表",
+    "dir": "up",
+    "scrollSpeed": 2.4,
+    "scrimOpacity": 0.1
+  }
+}
