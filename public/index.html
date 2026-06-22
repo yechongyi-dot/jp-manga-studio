@@ -1389,7 +1389,10 @@ async function manualGenerateBatch() {
   });
 
   const PARALLEL = Math.min(2, n);   // 同时最多并行 2 条（与后端 MAX_PARALLEL 一致）
-  const perConc  = 8;                // 并行时每条降到 8 并发（2×8=16 ≤ 20 核，避免争抢）
+  // 渲染并发按本机核数自适应：并行数×每路并发 = 总核数，避免超额订阅抢核（旧值 8 是按 20 核硬编码）。
+  // n=1 → 单条满核；n≥2 → 2 路各占一半核。
+  const CPU      = navigator.hardwareConcurrency || 12;
+  const perConc  = Math.max(2, Math.floor(CPU / PARALLEL));
   let ok = 0, cursor = 0;
   const worker = async () => {
     while (cursor < n && !cancelBatch) {

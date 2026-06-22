@@ -425,8 +425,12 @@ app.post('/api/ai/generate', (req, res) => {
 
 // ── 背景图片库设置（顶部图文件夹 / 底部滚动图文件夹 / 方向 / 速度）──────────────
 function readBgJson() {
-  try { return JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'backgrounds.json'), 'utf8')); }
-  catch { return { mode: 'image', procedural: [], image: {} }; }
+  // procedural 列表来自 committed config/backgrounds.json；机器专属 mode+image 来自 app-config.json.bg
+  // —— 必须与 scripts/ai/bg-provider.js loadBgConfig 一致，否则 UI 设的图片文件夹生成时读不到（出片丢背景）。
+  let procedural = [];
+  try { procedural = (JSON.parse(fs.readFileSync(path.join(ROOT, 'config', 'backgrounds.json'), 'utf8')).procedural) || []; } catch {}
+  const bg = readConfig().bg || {};
+  return { mode: bg.mode || 'image', image: bg.image || {}, procedural };
 }
 function countImages(d) {
   if (!d) return 0;
@@ -445,15 +449,18 @@ app.get('/api/bg-config', (_req, res) => {
   });
 });
 app.post('/api/bg-config', (req, res) => {
-  const b = req.body || {}; const j = readBgJson(); j.image = j.image || {};
-  if (b.topDir != null) j.image.topDir = String(b.topDir).trim();
-  if (b.scrollDir != null) j.image.scrollDir = String(b.scrollDir).trim();
-  if (b.dir) j.image.dir = b.dir === 'down' ? 'down' : 'up';
-  if (b.scrollSpeed != null) j.image.scrollSpeed = Math.max(0.2, Math.min(5, Number(b.scrollSpeed) || 1));
-  if (b.scrimOpacity != null) j.image.scrimOpacity = Math.max(0, Math.min(1, Number(b.scrimOpacity)));
+  const b = req.body || {};
+  const cur = readConfig().bg || {};
+  const image = { ...(cur.image || {}) };
+  if (b.topDir != null) image.topDir = String(b.topDir).trim();
+  if (b.scrollDir != null) image.scrollDir = String(b.scrollDir).trim();
+  if (b.dir) image.dir = b.dir === 'down' ? 'down' : 'up';
+  if (b.scrollSpeed != null) image.scrollSpeed = Math.max(0.2, Math.min(5, Number(b.scrollSpeed) || 1));
+  if (b.scrimOpacity != null) image.scrimOpacity = Math.max(0, Math.min(1, Number(b.scrimOpacity)));
   try {
-    fs.writeFileSync(path.join(ROOT, 'config', 'backgrounds.json'), JSON.stringify(j, null, 2));
-    res.json({ ok: true, image: { ...j.image, topCount: countImages(j.image.topDir), scrollCount: countImages(j.image.scrollDir) } });
+    // 写入 app-config.json 的 bg 键（bg-provider 从这里读；该文件 gitignore，自动更新 reset --hard 不覆盖）。
+    writeConfig({ bg: { mode: cur.mode || 'image', image } });
+    res.json({ ok: true, image: { ...image, topCount: countImages(image.topDir), scrollCount: countImages(image.scrollDir) } });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 

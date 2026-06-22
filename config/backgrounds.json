@@ -24,10 +24,10 @@
     }
   ],
   "image": {
-    "topDir": "C:\\Users\\LaoYe\\Desktop\\YahooFinanceGenerator1.2\\output_generated\\template3\\头部",
-    "scrollDir": "C:\\Users\\LaoYe\\Desktop\\YahooFinanceGenerator1.2\\output_generated\\template3\\列表",
+    "topDir": "",
+    "scrollDir": "",
     "dir": "up",
-    "scrollSpeed": 2.4,
+    "scrollSpeed": 2.5,
     "scrimOpacity": 0.1
   }
 }
