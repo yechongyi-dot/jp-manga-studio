@@ -112,7 +112,7 @@ function startAssetServer(allowedDirs = []) {
         let filePath, ok;
         if (urlPath.startsWith('/__f/')) {
           filePath = path.resolve(decodeURIComponent(urlPath.slice('/__f/'.length)));
-          ok = allowed.some(d => filePath.startsWith(d));
+          ok = allowed.length > 0 ? allowed.some(d => filePath.startsWith(d)) : filePath.startsWith(ROOT);
         } else {
           filePath = path.resolve(ROOT, urlPath.replace(/^\/+/, ''));
           ok = filePath.startsWith(ROOT);
