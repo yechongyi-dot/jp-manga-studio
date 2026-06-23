@@ -481,12 +481,17 @@ async function buildManualNisaScript(rawText, apiKey = '', lineId = '') {
   if (!apiKey) throw new Error('DeepSeek API キーが必要です（手動文案の抽出・翻訳に使用）');
   const map = loadStockNameMap();
 
+  // 言語判定はコード側で確定（AIの自動判定は誤りやすい：中国語文案に日元/上昇率/日本社名が
+  // 混じると「日本語」と誤判定し、口播文が中国語のまま残る）。平仮名は日本語にのみ存在し中国語
+  // には皆無 ⇒ 平仮名があれば日本語、無ければ中国語。これでAIに判定させず確実に分岐させる。
+  const inputLang = /[぀-ゟ]/.test(rawText) ? '日本語' : '中国語';
+
   const systemPrompt = `あなたは日本株ショート動画の台本処理器です。
 入力された【文案】(動画1本分)から構造を抽出し、各フィールドへ整理します。
 
-入力は【日本語】または【中国語】のいずれかです。冒頭で言語を自動判定し、次の通り処理します:
-- 入力が日本語の場合: すべての口播文(introTts/各銘柄ttsText/marketContext/planText/featuredText/ctaText)は原文を一字一句そのまま保持する。翻訳・要約・言い換え・語尾変更・加筆・読点の追加を一切しない。データ(code/name/価格/上昇率)だけを抽出する。
-- 入力が中国語の場合: すべての口播文を自然で専門的な日本語に翻訳する(従来通り)。
+入力言語は【${inputLang}】と確定済みです（判定しなくてよい）。次の通り処理します:
+- 日本語の場合: すべての口播文(introTts/各銘柄ttsText/marketContext/planText/featuredText/ctaText)は原文を一字一句そのまま保持する。翻訳・要約・言い換え・語尾変更・加筆・読点の追加を一切しない。データ(code/name/価格/上昇率)だけを抽出する。
+- 中国語の場合: すべての口播文(introTts/各銘柄ttsText/marketContext/planText/featuredText/ctaText)を必ず自然で専門的な日本語に翻訳する。簡体字・中国語の語彙や言い回し(的/了/随着/或将/板块 等)を一切残してはならない。出力に中国語が一文字でも残れば不合格。社名・コード・数値はそのまま。
 
 次のJSONのみ出力(説明・コードブロック禁止):
 {
