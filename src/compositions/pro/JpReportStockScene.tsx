@@ -22,9 +22,18 @@ export const JpReportStockScene: React.FC<Props> = ({ item, index, globalFrame, 
   const { ink, inkDim, accent, Bg, bgOverlay } = theme;
 
   const isMystery = item.name === '';
-  const role = ROLES[index % 5], weight = Number(item.weight) || 0;   // 占比用 AI 生成
-  // 神秘股无配当数据 → 中栏改用它有的 目標株価（不留空）；普通股用 配当利回り
-  const cMid = isMystery ? { l: '目標株価', v: item.shortTarget || item.targetPrice || '—' } : { l: '配当利回り', v: item.dividend || '—' };
+  const role = ROLES[index % 5];
+  // 中栏：有配当利回り(AI 的 NISA 组合)就用它；否则退回 目標株価（手动文案/神秘股没有配当数据，不留空）
+  const cMid = item.dividend
+    ? { l: '配当利回り', v: item.dividend }
+    : { l: '目標株価', v: item.shortTarget || item.targetPrice || '—' };
+  // 右栏：有構成比(weight, AI 组合)就显示「比率」；否则退回「予想上昇率」(手动文案有 pct，无 weight)
+  const weight = Number(item.weight) || 0;
+  const hasWeight = item.weight != null && String(item.weight) !== '' && weight > 0;
+  const pctNum = Math.abs(parseFloat(String(item.pct || '').replace(/[^0-9.\-]/g, '')) || 0);
+  const cRight = hasWeight
+    ? { l: '比率', v: `${weight}%`, bar: Math.min(100, weight * 2.6) }
+    : { l: '予想上昇率', v: item.pct || '—', bar: Math.min(100, pctNum) };
 
   const headOp = interpolate(frame, [0, 14], [0, 1], clamp);
   const headY  = spring({ frame, fps, config: { damping: 20, stiffness: 300 }, from: -44, to: 0 });
@@ -74,13 +83,13 @@ export const JpReportStockScene: React.FC<Props> = ({ item, index, globalFrame, 
             </div>
             <div style={{ width: 1, background: `${accent}22`, margin: '4px 0' }} />
             <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontFamily: MONO, fontSize: 39, fontWeight: 600, color: inkDim, marginBottom: 10 }}>比率</div>
-              <div style={{ fontFamily: MONO, fontSize: 62, fontWeight: 700, color: ink }}>{weight}%</div>
+              <div style={{ fontFamily: MONO, fontSize: 39, fontWeight: 600, color: inkDim, marginBottom: 10 }}>{cRight.l}</div>
+              <div style={{ fontFamily: MONO, fontSize: 62, fontWeight: 700, color: ink }}>{cRight.v}</div>
             </div>
           </div>
-          {/* 占比进度条 */}
+          {/* 占比/涨幅进度条 */}
           <div style={{ marginTop: 20, height: 10, borderRadius: 5, background: `${accent}18`, overflow: 'hidden' }}>
-            <div style={{ height: '100%', width: `${Math.min(100, weight * 2.6) * barW}%`, background: accent, borderRadius: 5 }} />
+            <div style={{ height: '100%', width: `${cRight.bar * barW}%`, background: accent, borderRadius: 5 }} />
           </div>
         </div>
       </AbsoluteFill>
