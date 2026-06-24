@@ -2,6 +2,7 @@
 // 选股：题材 → 雅虎实时榜单候选 → 株探补全真数据 → 返回 count 只（真数据先行，防编造）。
 const { fetchRanking } = require('./feed-yahoo');
 const { fetchQuote } = require('./quote');
+const { mapConc } = require('./util');
 
 /**
  * @param {object} theme   themes.json 的一项（含 feed 配置）
@@ -14,12 +15,23 @@ async function selectStocks(theme, count, opts = {}) {
   const f = theme.feed || {};
   const feed = await fetchRanking(f.ranking, { market: f.market, term: f.term, limit: f.limit, proxy });
   const ex = new Set(exclude.map(String));
+  // 候选去重去排除。多取一批(count 的 ~2.5 倍 + 缓冲)做株探补全，抵消补全失败 → 尽量保证选够 count 只。
+  const seen = new Set();
+  const candidates = feed.items.filter(r => {
+    if (!r.code || ex.has(r.code) || seen.has(r.code)) return false;
+    seen.add(r.code); return true;
+  });
+  const tryList = candidates.slice(0, Math.min(candidates.length, Math.max(count * 2 + 4, count + 6)));
+  // 并行补全(株探)，保持榜单顺序；并发 4，过高易被株探限流
+  const quotes = await mapConc(tryList, 4, async row => {
+    const q = await fetchQuote(row.code, { proxy });   // 失败 → null(代码不存在/解析失败/限流)
+    return q ? { row, q } : null;
+  });
   const stocks = [];
-  for (const row of feed.items) {
+  for (const r of quotes) {                              // 仍按榜单顺序取前 count 只成功的
     if (stocks.length >= count) break;
-    if (!row.code || ex.has(row.code)) continue;
-    const q = await fetchQuote(row.code, { proxy });   // 真数据补全；失败=跳过(代码不存在/解析失败)
-    if (!q) continue;
+    if (!r) continue;
+    const { row, q } = r;
     stocks.push({
       code: row.code,
       name: q.name || row.name,

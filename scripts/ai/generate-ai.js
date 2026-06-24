@@ -10,6 +10,19 @@ const { selectStocks } = require('./select');
 const { compose } = require('./compose');
 const { toInputProps, FPS } = require('./render-adapter');
 const { synthesize, getAudioDuration } = require('../jp-tts');   // 共享 TTS 工具(只读复用)
+const { mapConc } = require('./util');
+
+// src/ 最新 mtime（bundle 缓存键）。与 jp-generate 共享同一缓存文件，谁先打包另一方复用。
+function srcMtimeMax(dir, acc = { t: 0 }) {
+  let ents = [];
+  try { ents = fs.readdirSync(dir, { withFileTypes: true }); } catch { return acc.t; }
+  for (const e of ents) {
+    const fp = path.join(dir, e.name);
+    if (e.isDirectory()) srcMtimeMax(fp, acc);
+    else { try { const m = fs.statSync(fp).mtimeMs; if (m > acc.t) acc.t = m; } catch {} }
+  }
+  return acc.t;
+}
 
 const ROOT = path.join(__dirname, '..', '..');
 const log = (...a) => console.log('[generate-ai]', ...a);
@@ -40,7 +53,7 @@ function startAssetServer(allowedDirs = []) {
   });
 }
 
-async function generateAi({ themeId, toneId, skinId, count, ttsOpts = {}, exclude = [], bgChoice = null, stamp = Date.now() }) {
+async function generateAi({ themeId, toneId, skinId, count, ttsOpts = {}, exclude = [], bgChoice = null, lineId = '', stamp = Date.now() }) {
   const { theme, format, tone, skin } = resolve(themeId, toneId, skinId);   // 格式由题材自带
   const n = count || Math.min(theme.defaultStockCount, format.stockCount[1]);
 
@@ -49,6 +62,7 @@ async function generateAi({ themeId, toneId, skinId, count, ttsOpts = {}, exclud
   if (!selection.stocks.length) throw new Error('选股为空（雅虎/株探未取到）');
   log('选到', selection.stocks.map(s => s.code).join(','), '→ DeepSeek 组稿…');
   const script = await compose({ theme, tone, format, selection });
+  if (lineId) script.ctaLineId = lineId;   // CTA 卡片显示 LINE 账号（与手动路一致）
   log('标题:', script.title);
 
   // ── TTS（逐段；失败降级静音）──
@@ -67,7 +81,9 @@ async function generateAi({ themeId, toneId, skinId, count, ttsOpts = {}, exclud
 
   const rels = {}, durs = {};
   let ttsOk = 0;
-  for (const seg of segs) {
+  // 并行合成（VOICEVOX 本地引擎并发 2 防过载；Edge 云端放宽到 6）。失败段降级静音+估算时长。
+  const ttsConc = ttsOpts.engine === 'voicevox' ? 2 : 6;
+  await mapConc(segs, ttsConc, async seg => {
     const rel = `temp/ai-audio/ai_${stamp}_${seg.key}.${ext}`;
     const out = path.join(ROOT, rel);
     try {
@@ -78,7 +94,7 @@ async function generateAi({ themeId, toneId, skinId, count, ttsOpts = {}, exclud
       log(`  ⚠ TTS 失败(${seg.key})：${e.message} → 该段静音+估算时长`);
       rels[seg.key] = null; durs[seg.key] = null;   // null → 适配器用估算
     }
-  }
+  });
   log(`TTS 完成 ${ttsOk}/${segs.length}${ttsOk === 0 ? '（全静音，仍出片）' : ''}`);
 
   // ── 静态服务 + 组装 inputProps ──
@@ -126,17 +142,28 @@ async function generateAi({ themeId, toneId, skinId, count, ttsOpts = {}, exclud
   try {
     const { bundle } = require('@remotion/bundler');
     const { renderMedia, selectComposition } = require('@remotion/renderer');
-    log(`bundling…（dur=${props.durationInFrames}f / ${(props.durationInFrames / FPS).toFixed(1)}s）`);
-    const serveUrl = await bundle({ entryPoint: path.join(ROOT, 'src', 'index.tsx'), enableCaching: true });
+    // bundle 缓存复用：src 未变则跳过重新打包（与 jp-generate 共享同一缓存文件，省每条 5-10s）
+    const cachePath = path.join(ROOT, 'temp', '.jp-bundle-cache.json');
+    const srcMtime = srcMtimeMax(path.join(ROOT, 'src'));
+    let serveUrl, cacheHit = false;
+    try { const c = JSON.parse(fs.readFileSync(cachePath, 'utf8')); if (c.srcMtime === srcMtime && c.serveUrl && fs.existsSync(c.serveUrl)) { serveUrl = c.serveUrl; cacheHit = true; } } catch {}
+    if (!cacheHit) {
+      log(`bundling…（dur=${props.durationInFrames}f / ${(props.durationInFrames / FPS).toFixed(1)}s）`);
+      serveUrl = await bundle({ entryPoint: path.join(ROOT, 'src', 'index.tsx'), enableCaching: true });
+      try { fs.mkdirSync(path.dirname(cachePath), { recursive: true }); const tmp = `${cachePath}.${process.pid}.tmp`; fs.writeFileSync(tmp, JSON.stringify({ srcMtime, serveUrl })); fs.renameSync(tmp, cachePath); } catch {}
+    } else {
+      log(`bundle 缓存命中（dur=${props.durationInFrames}f / ${(props.durationInFrames / FPS).toFixed(1)}s）`);
+    }
     const composition = await selectComposition({ id: 'AiVideo', serveUrl, inputProps: props, timeoutInMilliseconds: 30000 });
     const outDir = path.join(ROOT, 'output');
     fs.mkdirSync(outDir, { recursive: true });
     const videoPath = path.join(outDir, `ai_${themeId}_${format.id}_${toneId}_${stamp}.mp4`);
-    log('rendering…');
+    const concurrency = Math.max(2, Math.min(os.cpus().length, 12));   // 单条出片满核（旧值封顶8，12核机器只用8）
+    log(`rendering…（并发${concurrency}）`);
     await renderMedia({
       composition, serveUrl, inputProps: props,
       codec: 'h264', outputLocation: videoPath, crf: 26,
-      concurrency: Math.max(2, Math.min(os.cpus().length, 8)),
+      concurrency,
       logLevel: 'error', overwrite: true,
     });
     log('✓ 出片:', videoPath);
@@ -155,7 +182,8 @@ if (require.main === module) {
   const count = countArg ? parseInt(countArg) : undefined;
   const ttsOpts = { engine: process.env.AI_TTS_ENGINE || 'edge', voice: process.env.AI_TTS_VOICE || 'ja-JP-NanamiNeural' };
   let bgChoice = null; try { if (process.env.AI_BG) bgChoice = JSON.parse(process.env.AI_BG); } catch {}
-  generateAi({ themeId, toneId, skinId, count, ttsOpts, bgChoice })
+  const lineId = process.env.AI_LINE_ID || '';
+  generateAi({ themeId, toneId, skinId, count, ttsOpts, bgChoice, lineId })
     .then(r => console.log('DONE:', r.videoPath))
     .catch(e => { console.error('❌', e.message); process.exit(1); });
 }

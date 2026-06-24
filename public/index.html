@@ -1169,7 +1169,7 @@ async function aiGenerate() {
   try {
     res = await fetch('/api/ai/generate', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ themeId, toneId, skinId, apiKey: getApiKey(), bg }),
+      body: JSON.stringify({ themeId, toneId, skinId, apiKey: getApiKey(), bg, lineId: (document.getElementById('lineId').value || '').trim() }),
     });
     data = await res.json();
   } catch (e) { appendLog('❌ 请求失败: ' + e.message); setRunning(false); return; }

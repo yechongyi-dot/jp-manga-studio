@@ -368,7 +368,7 @@ app.get('/api/ai/layers', (_req, res) => {
 });
 
 app.post('/api/ai/generate', (req, res) => {
-  const { themeId, toneId, skinId, count, apiKey, ttsEngine, ttsVoice, bg } = req.body || {};
+  const { themeId, toneId, skinId, count, apiKey, ttsEngine, ttsVoice, bg, lineId } = req.body || {};
   if (!themeId || !toneId) return res.status(400).json({ error: '缺少 题材/口吻' });
   const key = (apiKey || readEnvKey() || process.env.DEEPSEEK_KEY || '').trim();
   if (!key) return res.status(400).json({ error: '缺少 DeepSeek API Key（填入或写进 .env）' });
@@ -387,6 +387,7 @@ app.post('/api/ai/generate', (req, res) => {
       JP_PROXY: readConfig().proxy || process.env.JP_PROXY || '',
       AI_TTS_ENGINE: ttsEngine || 'edge', AI_TTS_VOICE: ttsVoice || 'ja-JP-NanamiNeural',
       AI_BG: bg ? JSON.stringify(bg) : '',   // 背景选择(图片库/程序化+方向)
+      AI_LINE_ID: (lineId || '').toString().trim(),   // CTA 卡片 LINE 账号
     },
   });
   job.proc = proc;

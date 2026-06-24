@@ -39,7 +39,11 @@ function mergeScript({ theme, tone, format, selection, ai }) {
   (ai.stocks || []).forEach(s => { if (s && s.code) byCode[String(s.code)] = s; });
   const stocks = selection.stocks.map(s => {
     const a = byCode[String(s.code)] || {};
-    return { ...s, note: a.note || '', ttsText: a.ttsText || '' };
+    // AI 漏配/错配该代码时，用真数据兜底，避免口播/解说为空（旁白干瘪）
+    const metric = s.rankMetricLabel ? `${s.rankMetricLabel}${s.pct}` : (s.pct || '');
+    const note = a.note || metric || s.name;
+    const ttsText = a.ttsText || `${s.name}。${metric ? metric + 'と、' : ''}今注目の一社です。`;
+    return { ...s, note, ttsText };
   });
   const script = {
     meta: { themeId: theme.id, formatId: format.id, toneId: tone.id, angle: theme.angle, asOf: selection.asOf },
@@ -59,12 +63,26 @@ function mergeScript({ theme, tone, format, selection, ai }) {
   return script;
 }
 
+// AI 返回里命中了多少 selection 代码（用于判断口播是否大面积兜底）
+function aiCoverage(selection, ai) {
+  const codes = new Set((ai && ai.stocks || []).filter(s => s && s.code).map(s => String(s.code)));
+  return selection.stocks.filter(s => codes.has(String(s.code))).length;
+}
+
 async function compose({ theme, tone, format, selection, apiKey }) {
   const key = apiKey || getKey();
   if (!key) throw new Error('缺少 DEEPSEEK_KEY（设到 .env 或环境变量后重试）');
-  const raw = await chat(key, buildMessages({ theme, tone, format, selection }), { json: true, temperature: 0.8, maxTokens: 3000 });
-  let ai;
-  try { ai = JSON.parse(raw); } catch (e) { throw new Error('AI 返回非 JSON：' + raw.slice(0, 150)); }
+  const need = Math.ceil(selection.stocks.length / 2);   // 至少命中一半代码才算合格
+  const baseMsgs = buildMessages({ theme, tone, format, selection });
+  let ai = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const msgs = attempt === 1 ? baseMsgs
+      : [...baseMsgs, { role: 'user', content: `前回は銘柄コードの対応が不十分でした。必ず上記 ${selection.stocks.length} 件すべての code をそのまま使い、各 code に note と ttsText を付けて JSON で再出力してください。` }];
+    const raw = await chat(key, msgs, { json: true, temperature: attempt === 1 ? 0.8 : 0.5, maxTokens: 3000 });
+    let cur; try { cur = JSON.parse(raw); } catch { if (attempt === 2) throw new Error('AI 返回非 JSON：' + raw.slice(0, 150)); continue; }
+    ai = cur;
+    if (selection.stocks.length <= 1 || aiCoverage(selection, ai) >= need) break;   // 合格或单股 → 不重试
+  }
   const script = mergeScript({ theme, tone, format, selection, ai });
   const v = validate(script);
   if (!v.ok) throw new Error('生成 Script 不合契约：' + v.issues.join('；'));
